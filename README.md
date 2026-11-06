@@ -16,7 +16,7 @@ It reads `~/.claude/projects` and never writes to it. The server listens on `127
 Needs Python 3.9+ and nothing else (no pip install). Works on Linux and macOS.
 
 ```bash
-git clone <repo-url> claudeck
+git clone https://github.com/pfrayer/claudeck.git
 ./claudeck/src/claudeck     # opens http://localhost:8765/ in your browser
 ```
 
