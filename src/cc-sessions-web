@@ -112,11 +112,17 @@ def all_sessions():
     return out
 
 
-def find_session(sid):
-    for m in all_sessions():
-        if m["id"] == sid:
-            return m
-    return None
+MAX_MSG_CHARS = 4000
+
+
+def _clip(text):
+    """Truncate a message, closing an open code fence and saying how much was cut."""
+    if len(text) <= MAX_MSG_CHARS:
+        return text
+    head = text[:MAX_MSG_CHARS]
+    if head.count("```") % 2:
+        head += "\n```"
+    return f"{head}\n\n[… {len(text) - MAX_MSG_CHARS:,} more characters not shown]"
 
 
 def transcript(sid):
@@ -131,7 +137,7 @@ def transcript(sid):
         text = _text_of((d.get("message") or {}).get("content"), with_tools=(t == "assistant"))
         if _is_noise(text):
             continue
-        msgs.append({"role": t, "text": text[:4000], "ts": d.get("timestamp")})
+        msgs.append({"role": t, "text": _clip(text), "ts": d.get("timestamp")})
     return msgs
 
 
