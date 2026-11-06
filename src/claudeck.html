@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Claude Sessions</title>
+<title>Claudeck</title>
 <script>try{if(localStorage.getItem("ccs-theme")==="light")document.documentElement.dataset.theme="light"}catch{}</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%229%22 y=%222.5%22 width=%2220%22 height=%2212%22 rx=%223.5%22 fill=%22%23f2c8b4%22/%3E%3Crect x=%225.5%22 y=%227.5%22 width=%2222%22 height=%2213%22 rx=%223.5%22 fill=%22%23e59a79%22/%3E%3Crect x=%222%22 y=%2213%22 width=%2225%22 height=%2217%22 rx=%224.5%22 fill=%22%23d0623a%22/%3E%3Cpath d=%22M7.5 21.5h14%22 stroke=%22%23fff%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 <style>
@@ -203,7 +203,7 @@ mark.cur{background:oklch(0.82 0.16 85);color:oklch(0.22 0.03 85);box-shadow:0 0
   <symbol id="i-stack" viewBox="0 0 32 32"><rect x="9" y="2.5" width="20" height="12" rx="3.5" fill="currentColor" fill-opacity=".35"/><rect x="5.5" y="7.5" width="22" height="13" rx="3.5" fill="currentColor" fill-opacity=".65"/><rect x="2" y="13" width="25" height="17" rx="4.5" fill="currentColor"/><path d="M7.5 21.5h14" stroke="#fff" stroke-width="3" stroke-linecap="round"/></symbol>
 </svg>
 <header>
-  <div class="brand"><svg width="20" height="20"><use href="#i-stack"/></svg><span>Claude Sessions</span></div>
+  <div class="brand"><svg width="20" height="20"><use href="#i-stack"/></svg><span>Claudeck</span></div>
   <label class="search"><svg width="15" height="15"><use href="#i-search"/></svg><input id="q" placeholder="Search a folder, a title, a word from your prompts…" autocomplete="off"><kbd>/</kbd></label>
   <div class="totals" id="totals"></div>
   <div class="actions"><button class="act" id="theme"></button><button class="act" id="reload" title="Re-read sessions from disk (keeps the selection)"><svg width="13" height="13"><use href="#i-reload"/></svg>Reload</button><button class="act" id="reset" title="Clear search and selection, collapse the tree"><svg width="13" height="13"><use href="#i-reset"/></svg>Reset</button></div>
@@ -361,7 +361,7 @@ async function load(){try{const r=await fetch("/api/sessions"),j=await r.json();
     if(h.get("q"))$("#q").value=h.get("q");
     if(hp){curPath=hp.startsWith("~")?HOME+hp.slice(1):hp;expand(curPath)}
     renderTree();if(hs&&DATA.some(s=>s.id===hs))showSession(hs);return}
-  renderTree()}catch{ $("#treeBody").innerHTML=`<div class="empty"><p>Server unreachable. Restart cc-sessions-web.</p></div>`}}
+  renderTree()}catch{ $("#treeBody").innerHTML=`<div class="empty"><p>Server unreachable. Restart claudeck.</p></div>`}}
 const EMPTY_VIEW=$("#view").innerHTML;
 $("#reload").onclick=async()=>{const b=$("#reload");b.disabled=true;b.classList.add("busy");await load();b.disabled=false;b.classList.remove("busy");toast(`Tree reloaded · ${DATA.length} sessions`)};
 $("#reset").onclick=()=>{$("#q").value="";curPath=null;curSid=null;open=new Set();ROOT=null;$("#view").innerHTML=EMPTY_VIEW;THREAD="";MARKS=[];history.replaceState(null,"",location.pathname);load()};

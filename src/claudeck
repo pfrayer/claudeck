@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""cc-sessions-web — local web view of Claude Code sessions, grouped by folder.
+"""claudeck — local web view of Claude Code sessions, grouped by folder.
 
 Read-only on ~/.claude/projects. Listens on 127.0.0.1 only.
-Usage: cc-sessions-web [--port PORT] [--no-browser]
-Port: --port, else $CC_SESSIONS_WEB_PORT, else 8765.
+Usage: claudeck [--port PORT] [--no-browser]
+Port: --port, else $CLAUDECK_PORT, else 8765.
 """
 import argparse
 import json
@@ -142,7 +142,7 @@ def transcript(sid):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "cc-sessions-web"
+    server_version = "claudeck"
 
     def log_message(self, *a):
         pass
@@ -179,7 +179,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 # The page is served from the sibling file, re-read on every request (editable without restart).
-PAGE_FILE = Path(__file__).resolve().with_name("cc-sessions-web.html")
+PAGE_FILE = Path(__file__).resolve().with_name("claudeck.html")
 
 
 DEFAULT_PORT = 8765
@@ -198,13 +198,13 @@ def port_arg(value):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=port_arg,
-                    default=os.environ.get("CC_SESSIONS_WEB_PORT", DEFAULT_PORT),
-                    help=f"HTTP port (default: $CC_SESSIONS_WEB_PORT or {DEFAULT_PORT})")
+                    default=os.environ.get("CLAUDECK_PORT", DEFAULT_PORT),
+                    help=f"HTTP port (default: $CLAUDECK_PORT or {DEFAULT_PORT})")
     ap.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
     args = ap.parse_args()
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     url = f"http://localhost:{args.port}/"
-    print(f"cc-sessions-web : {url}  (Ctrl+C to stop)", flush=True)
+    print(f"claudeck : {url}  (Ctrl+C to stop)", flush=True)
     if not args.no_browser:
         threading.Timer(0.5, webbrowser.open, [url]).start()
     try:

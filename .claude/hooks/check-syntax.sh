@@ -7,7 +7,7 @@ f=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty')
 root="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 
 case "$f" in
-  "$root/src/cc-sessions-web")
+  "$root/src/claudeck")
     # ast.parse instead of py_compile: same check, no __pycache__ left behind
     out=$(python3 -c '
 import ast, sys
@@ -17,7 +17,7 @@ except SyntaxError as e:
     print(f"{e.filename}:{e.lineno}:{e.offset}: {e.msg}\n  {(e.text or "").rstrip()}")
 ' "$f" 2>&1)
     ;;
-  "$root/src/cc-sessions-web.html")
+  "$root/src/claudeck.html")
     tmp=$(mktemp --suffix=.js)
     trap 'rm -f "$tmp"' EXIT
     # Keep every inline <script> block, blank out the rest but keep its newlines,

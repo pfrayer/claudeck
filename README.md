@@ -1,4 +1,6 @@
-# cc-sessions-web
+# Claudeck
+
+*Your Claude Code sessions, as a deck you can flip through.*
 
 A local, read-only web view of your Claude Code sessions, organized as a tree of the folders you worked in.
 
@@ -14,11 +16,11 @@ It reads `~/.claude/projects` and never writes to it. The server listens on `127
 Needs Python 3.9+ and nothing else (no pip install). Works on Linux and macOS.
 
 ```bash
-git clone <repo-url> cc-sessions-web
-./cc-sessions-web/src/cc-sessions-web     # opens http://localhost:8765/ in your browser
+git clone <repo-url> claudeck
+./claudeck/src/claudeck     # opens http://localhost:8765/ in your browser
 ```
 
-Options: `--port 9000` (or `$CC_SESSIONS_WEB_PORT`), `--no-browser`.
+Options: `--port 9000` (or `$CLAUDECK_PORT`), `--no-browser`.
 
 ## Install
 
@@ -26,9 +28,9 @@ Options: `--port 9000` (or `$CC_SESSIONS_WEB_PORT`), `--no-browser`.
 ./scripts/install.sh
 ```
 
-- Links `~/.local/bin/cc-sessions-web`, so you can run `cc-sessions-web` from anywhere.
-- On Linux with systemd, also installs and starts a user service, so the page is always up at http://localhost:8765/. To change its port, edit `~/.config/cc-sessions-web/env`, then run `systemctl --user restart cc-sessions-web`.
-- Elsewhere (macOS…), no service is installed: just run `cc-sessions-web` when you need it.
+- Links `~/.local/bin/claudeck`, so you can run `claudeck` from anywhere.
+- On Linux with systemd, also installs and starts a user service, so the page is always up at http://localhost:8765/. To change its port, edit `~/.config/claudeck/env`, then run `systemctl --user restart claudeck`.
+- Elsewhere (macOS…), no service is installed: just run `claudeck` when you need it.
 
 `./scripts/uninstall.sh` removes the link and the service and keeps your config.
 
