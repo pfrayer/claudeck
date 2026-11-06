@@ -1,0 +1,15 @@
+[Unit]
+Description=cc-sessions-web : vue web locale des sessions Claude Code
+Documentation=file://%h/workspace/github/cc-sessions-web
+
+[Service]
+Type=simple
+# Port : surcharger CC_SESSIONS_WEB_PORT dans ~/.config/cc-sessions-web/env
+Environment=CC_SESSIONS_WEB_PORT=8765
+EnvironmentFile=-%h/.config/cc-sessions-web/env
+ExecStart=%h/bin/cc-sessions-web --no-browser
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

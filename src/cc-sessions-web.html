@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sessions Claude</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Cpath d=%22M4 3v14M4 7h5M4 14h5%22 stroke=%22%2322a07a%22 stroke-width=%222%22 fill=%22none%22/%3E%3Crect x=%2210%22 y=%224.5%22 width=%227%22 height=%225%22 rx=%221.3%22 fill=%22%2322a07a%22/%3E%3Crect x=%2210%22 y=%2211.5%22 width=%227%22 height=%225%22 rx=%221.3%22 fill=%22%2322a07a%22/%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.18 0.012 260);--panel:oklch(0.205 0.014 260);--sunk:oklch(0.155 0.012 260);
+  --fg:oklch(0.93 0.008 250);--muted:oklch(0.71 0.015 250);--faint:oklch(0.50 0.015 250);
+  --line:oklch(0.28 0.016 260);--accent:oklch(0.76 0.13 165);--accent-soft:oklch(0.30 0.05 165);
+  --accent-ink:oklch(0.85 0.10 165);--user:oklch(0.26 0.035 255);--code:oklch(0.13 0.012 260);--code-fg:oklch(0.90 0.01 250);
+  --shadow:0 1px 2px oklch(0 0 0/.3),0 8px 22px -10px oklch(0 0 0/.6);
+  --mono:ui-monospace,"JetBrains Mono","SF Mono","Cascadia Code",Menlo,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Ubuntu,Cantarell,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--sans);display:flex;flex-direction:column;overflow:hidden}
+::selection{background:var(--accent);color:var(--panel)}
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+svg{flex:none}
+
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{white-space:nowrap;display:flex;align-items:center;gap:10px;font-weight:650;font-size:15px;letter-spacing:-.01em}
+.brand svg{color:var(--accent)}
+.search{flex:1;max-width:520px;display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--muted)}
+.search:focus-within{border-color:var(--accent);background:var(--panel)}
+.search input{flex:1;min-width:0;border:0;outline:0;background:none;color:var(--fg);font:inherit}
+.search kbd{font:11px var(--mono);color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:0 5px}
+.totals{margin-left:auto;display:flex;gap:18px;color:var(--muted);font-size:12.5px}
+.totals b{color:var(--fg);font-variant-numeric:tabular-nums;font-weight:600;margin-right:4px}
+.actions{display:flex;gap:6px}
+.act{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:7px;background:var(--sunk);color:var(--muted);font-size:12.5px}
+.act:hover{border-color:var(--accent);color:var(--accent-ink)}
+.act:disabled{opacity:.6;cursor:progress}
+.act.busy svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(300px,400px) minmax(300px,380px) minmax(0,1fr)}
+.col{min-height:0;display:flex;flex-direction:column;border-left:1px solid var(--line)}
+.col:first-child{border-left:0}
+.col-head{padding:12px 18px 10px;display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.col-head h2{margin:0;font-size:13px;font-weight:600}
+.col-head .sub{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
+.scroll{flex:1;overflow:auto;min-height:0}
+
+/* ---------- tree ---------- */
+#tree{background:var(--panel)}
+.tree{padding:10px 8px 24px;font:13px/1 var(--mono)}
+.node{display:flex;align-items:center;width:100%;height:28px;padding:0 8px 0 0;border-radius:6px;text-align:left;position:relative}
+.node:hover{background:var(--sunk)}
+.node.sel{background:var(--accent-soft);color:var(--accent-ink)}
+.node.sel .count{color:var(--accent-ink)}
+.guides{display:flex;height:100%;color:var(--faint)}
+.guides span{width:18px;height:100%;position:relative}
+.guides .v::before{content:"";position:absolute;left:8px;top:0;bottom:0;border-left:1px solid var(--line)}
+.guides .t::before{content:"";position:absolute;left:8px;top:0;bottom:0;border-left:1px solid var(--line)}
+.guides .l::before{content:"";position:absolute;left:8px;top:0;height:50%;border-left:1px solid var(--line)}
+.guides .t::after,.guides .l::after{content:"";position:absolute;left:8px;top:50%;width:8px;border-top:1px solid var(--line)}
+.twisty{width:16px;height:16px;display:grid;place-items:center;color:var(--muted);transition:transform .15s ease-out}
+.twisty.open{transform:rotate(90deg)}
+.twisty.leaf{visibility:hidden}
+.ico{margin:0 7px 0 2px;color:var(--muted)}
+.node.tinted{--hc:oklch(0.80 0.13 var(--h));--hb:oklch(0.70 0.15 var(--h))}
+.node.tinted .ico{color:var(--hc)}
+.node.tinted .meter i{background:var(--hb);opacity:.9}
+.node.tinted.has-own .name{color:oklch(0.93 0.04 var(--h))}
+.node.tinted.sel{background:oklch(0.31 0.06 var(--h));color:oklch(0.95 0.04 var(--h))}
+.node.tinted.sel .count{color:var(--hc)}
+.node.tinted .guides .v::before,.node.tinted .guides .t::before,.node.tinted .guides .l::before,.node.tinted .guides .t::after,.node.tinted .guides .l::after{border-color:oklch(0.38 0.06 var(--h))}
+.hue{color:oklch(0.80 0.13 var(--h))}
+.hue code,.hue.sub{color:oklch(0.88 0.08 var(--h))}
+.name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.name .dim{color:var(--faint)}
+.meter{width:46px;height:5px;border-radius:3px;background:var(--sunk);margin:0 10px;overflow:hidden;flex:none}
+.meter i{display:block;height:100%;background:var(--accent);opacity:.75;border-radius:3px}
+.count{min-width:26px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+.own{color:var(--accent);font-size:11px;margin-left:2px}
+
+/* ---------- sessions ---------- */
+#list{background:var(--bg)}
+.group{padding:16px 18px 6px;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.sess{display:block;width:calc(100% - 20px);margin:0 10px 6px;padding:11px 14px;text-align:left;border-radius:9px;border:1px solid transparent}
+.sess:hover{background:var(--panel);border-color:var(--line)}
+.sess.sel{background:var(--panel);border-color:var(--accent);box-shadow:var(--shadow)}
+.sess .t{font-weight:560;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sess .m{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;color:var(--muted);font-size:12px;align-items:center}
+.sess .m span{display:inline-flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}
+.sess .path{font-family:var(--mono);font-size:11.5px;color:var(--accent-ink)}
+.vol{display:inline-flex;gap:2px;align-items:flex-end;height:10px}
+.vol i{width:3px;background:var(--faint);border-radius:1px}
+.vol i.on{background:var(--accent)}
+
+/* ---------- transcript ---------- */
+#view{background:var(--bg)}
+.vhead{padding:18px 28px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+.vhead h1{margin:0 0 8px;font-size:20px;line-height:1.25;letter-spacing:-.015em;font-weight:650;text-wrap:balance}
+.vmeta{display:flex;flex-wrap:wrap;gap:6px 16px;color:var(--muted);font-size:12.5px;align-items:center}
+.vmeta span{display:inline-flex;align-items:center;gap:5px}
+.vmeta code{font-family:var(--mono);font-size:12px;color:var(--fg)}
+.copy{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:7px;background:var(--sunk);font-size:12.5px}
+.copy[aria-pressed=true]{color:var(--accent-ink)}
+.copy svg{transition:transform .15s ease-out}#tt svg{transform:rotate(90deg)}#tt[aria-pressed=true] svg{transform:rotate(-90deg)}
+.copy:hover{border-color:var(--accent);color:var(--accent-ink)}
+.thread{max-width:1400px;margin:0 auto;padding:20px 32px 60px}
+.turn{display:flex;gap:12px;margin:18px 0}
+.av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:11px;font-weight:700;margin-top:2px}
+.turn.user .av{background:var(--user);color:var(--fg)}
+.turn.assistant .av{background:var(--accent-soft);color:var(--accent-ink)}
+.bubble{min-width:0;flex:0 1 auto;max-width:min(85%,110ch)}
+.turn.user{flex-direction:row-reverse}
+.turn.user .bubble{display:flex;flex-direction:column;align-items:flex-end}
+.turn.user .who b{margin:0 0 0 6px;order:2}.turn.user .who{display:flex}
+.card{background:var(--panel);border:1px solid var(--line);padding:10px 14px;border-radius:4px 12px 12px 12px}
+.card>.tools:first-child{margin-top:0}.card>.tools:last-child{margin-bottom:0}
+.who{font-size:12px;color:var(--muted);margin-bottom:3px}
+.who b{color:var(--fg);font-weight:600;margin-right:6px}
+.turn.user .body{background:var(--user);padding:10px 14px;border-radius:12px 4px 12px 12px}
+.body{overflow-wrap:anywhere}
+.card>.body+.body,.card>.tools+.body,.card>.body+.tools{margin-top:8px}
+.body p{margin:0 0 .6em}.body p:last-child{margin-bottom:0}
+.body h3,.body h4{margin:1em 0 .4em;font-size:14.5px}
+.body ul,.body ol{margin:.2em 0 .7em;padding-left:1.3em}
+.body code{font:12.5px var(--mono);background:var(--sunk);padding:1px 5px;border-radius:4px}
+.body pre{background:var(--code);color:var(--code-fg);padding:12px 14px;border-radius:8px;overflow:auto;font:12.5px/1.5 var(--mono);margin:.5em 0 .8em}
+.body pre code{background:none;padding:0;color:inherit}
+.tools{margin:6px 0}.toolist{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.tools>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font:12px var(--mono);color:var(--muted);padding:3px 9px;border:1px dashed var(--line);border-radius:6px}
+.tools>summary::-webkit-details-marker{display:none}
+.tools>summary{max-width:100%}.tools>summary .sl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tools>summary:hover{color:var(--accent-ink);border-color:var(--accent)}
+.tools>summary svg{transition:transform .15s ease-out}.tools[open]>summary svg{transform:rotate(90deg)}
+mark{background:oklch(0.80 0.15 85/.30);color:inherit;border-radius:3px;padding:0 1px}
+mark.cur{background:oklch(0.82 0.16 85);color:oklch(0.22 0.03 85);box-shadow:0 0 0 2px oklch(0.82 0.16 85/.35)}
+.vtools{display:flex;gap:6px;margin-left:auto;align-items:center}
+.finder{display:inline-flex;align-items:center;gap:2px;padding:2px 4px 2px 10px;border:1px solid oklch(0.82 0.16 85/.5);border-radius:7px;font-size:12.5px;color:oklch(0.88 0.10 85);font-variant-numeric:tabular-nums}
+.finder[hidden]{display:none}
+.finder button{display:grid;place-items:center;width:24px;height:24px;border-radius:5px;color:var(--muted)}
+.finder button:hover{background:var(--sunk);color:var(--fg)}
+.finder .up svg{transform:rotate(-90deg)}.finder .dn svg{transform:rotate(90deg)}
+.live{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none;animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 oklch(0.76 0.13 165/.6)}70%,100%{box-shadow:0 0 0 6px oklch(0.76 0.13 165/0)}}
+.node .live{margin-right:6px}.sess .trow{display:flex;align-items:baseline;gap:8px}.sess .trow .live{transform:translateY(-1px)}
+.tool{display:flex;gap:8px;align-items:center;font:12px var(--mono);color:var(--muted);padding:4px 9px;background:var(--sunk);border-radius:6px;min-width:0}
+.tool b{color:var(--accent-ink);font-weight:600;flex:0 1 auto;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tool{overflow:hidden}
+.tool span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.empty{display:grid;place-items:center;text-align:center;color:var(--muted);padding:48px 24px;height:100%}
+.empty svg{color:var(--faint);margin-bottom:12px}
+.empty p{margin:0;max-width:34ch}
+.loading{height:3px;background:linear-gradient(90deg,transparent,var(--accent),transparent);background-size:40% 100%;background-repeat:no-repeat;animation:ld 1s ease-in-out infinite}
+@keyframes ld{from{background-position:-40% 0}to{background-position:140% 0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+#toast{position:fixed;bottom:18px;left:50%;transform:translate(-50%,10px);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s ease-out,transform .2s ease-out}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:980px){
+  body{overflow:auto}
+  main{display:flex;flex-direction:column}
+  .col{border-left:0;border-bottom:1px solid var(--line)}
+  .scroll{max-height:60vh}
+  .totals,.search kbd,.brand span{display:none}
+  .act{font-size:0;gap:0;padding:7px 9px}
+  header{padding:10px 16px;gap:8px}
+  .thread,.vhead{padding-left:16px;padding-right:16px}
+  .bubble{max-width:92%}
+}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-folder" viewBox="0 0 16 16"><path d="M1.75 3.5h4l1.5 1.5h7v7.75a.75.75 0 0 1-.75.75H2.5a.75.75 0 0 1-.75-.75z" fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m10.5 10.5 3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 16 16"><circle cx="4.5" cy="3.5" r="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="4.5" cy="12.5" r="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="11.5" cy="5.5" r="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 5v6M11.5 7c0 3-7 2-7 4" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 4.8V8l2.2 1.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 16 16"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 10.5h-.5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1v.5" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5v3h-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 16 16"><path d="M3 8a5 5 0 1 0 1.6-3.7M3 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="m6.5 6.5 3 3m0-3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-tree" viewBox="0 0 20 20"><path d="M4 3v14M4 7h5M4 14h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="10" y="4.5" width="7" height="5" rx="1.3" fill="currentColor"/><rect x="10" y="11.5" width="7" height="5" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+</svg>
+<header>
+  <div class="brand"><svg width="20" height="20"><use href="#i-tree"/></svg><span>Sessions Claude</span></div>
+  <label class="search"><svg width="15" height="15"><use href="#i-search"/></svg><input id="q" placeholder="Chercher un dossier, un titre, un mot dans tes prompts…" autocomplete="off"><kbd>/</kbd></label>
+  <div class="totals" id="totals"></div>
+  <div class="actions"><button class="act" id="reload" title="Relire les sessions sur le disque (garde la sélection)"><svg width="13" height="13"><use href="#i-reload"/></svg>Recharger</button><button class="act" id="reset" title="Vider la recherche, la sélection et replier l'arbre"><svg width="13" height="13"><use href="#i-reset"/></svg>Réinitialiser</button></div>
+</header>
+<main>
+  <section class="col" id="tree"><div class="col-head"><h2>Dossiers</h2><span class="sub">~</span></div><div class="scroll"><div class="tree" id="treeBody" role="tree"></div></div></section>
+  <section class="col" id="list"><div class="col-head"><h2>Sessions</h2><span class="sub" id="listSub"></span></div><div class="scroll" id="sessions"></div></section>
+  <section class="col" id="view"><div class="empty"><div><svg width="40" height="40"><use href="#i-msg"/></svg><p>Choisis un dossier dans l'arbre à gauche, puis une session.</p></div></div></section>
+</main>
+<div id="toast" role="status"></div>
+<script>
+const LIVE_S=120;let TOOLS_OPEN=false;try{TOOLS_OPEN=localStorage.getItem("ccs-tools")==="1"}catch{}
+let MARKS=[],MI=-1,THREAD="",HUES=new Map(),DATA=[],HOME="",ROOT=null,curPath=null,curSid=null,open=new Set();
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const icon=(id,n=13)=>`<svg width="${n}" height="${n}"><use href="#i-${id}"/></svg>`;
+const short=p=>p.startsWith(HOME)?"~"+p.slice(HOME.length):p;
+const title=s=>s.title||s.first||"(sans titre)";
+const ago=t=>{const s=Date.now()/1000-t;if(s<90)return"à l'instant";if(s<3600)return`il y a ${Math.round(s/60)} min`;if(s<86400)return`il y a ${Math.round(s/3600)} h`;if(s<86400*7)return`il y a ${Math.round(s/86400)} j`;return new Date(t*1000).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})};
+let tt;const toast=m=>{const e=$("#toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),2000)};
+
+function matches(s,q){return !q||(s.cwd+" "+title(s)+" "+(s.prompts||"")+" "+(s.branch||"")).toLowerCase().includes(q)}
+function buildTree(list){
+  const root={name:"~",path:HOME,kids:new Map(),own:[],total:0};
+  for(const s of list){
+    const rel=s.cwd.startsWith(HOME)?s.cwd.slice(HOME.length).split("/").filter(Boolean):["/",...s.cwd.split("/").filter(Boolean)];
+    let n=root,p=s.cwd.startsWith(HOME)?HOME:"";
+    for(const part of rel){p=part==="/"?"":p+"/"+part;if(!n.kids.has(part))n.kids.set(part,{name:part,path:p||"/",kids:new Map(),own:[],total:0});n=n.kids.get(part)}
+    n.own.push(s);
+  }
+  (function tot(n){n.total=n.own.length;for(const k of n.kids.values())n.total+=tot(k);n.last=Math.max(0,...n.own.map(s=>s.mtime),...[...n.kids.values()].map(k=>k.last));n.live=Date.now()/1000-n.last<LIVE_S;return n.total})(root);
+  // compresse les chaînes de dossiers sans session propre et à enfant unique (workspace/ldp/apiv2)
+  (function comp(n){for(const [k,c] of [...n.kids]){let x=c,label=c.name;while(!x.own.length&&x.kids.size===1){x=[...x.kids.values()][0];label+="/"+x.name}
+    if(x!==c){n.kids.delete(k);n.kids.set(label,{...x,name:label})}comp(n.kids.get(label)||x)}})(root);
+  return root;
+}
+const PALETTE=[165,250,305,30,85,200,345,130,275,55];
+function assignHues(){const full=buildTree(DATA),groups=[],half=full.total/2;
+  // une couleur par branche ; on descend tant qu'un dossier concentre plus de la moitié des sessions
+  (function pick(n){for(const k of n.kids.values()){if(k.kids.size&&k.total>half)pick(k);else groups.push(k.path)}})(full);
+  groups.sort();HUES=new Map(groups.map((g,i)=>[g,PALETTE[i%PALETTE.length]]))}
+function hueOf(path){let best=null,len=-1;for(const [g,h] of HUES)if((path===g||path.startsWith(g+"/"))&&g.length>len){best=h;len=g.length}return best}
+const hueAttr=p=>{const h=hueOf(p);return h===null?"":` style="--h:${h}"`};
+function renderTree(){
+  const q=$("#q").value.toLowerCase().trim(),list=DATA.filter(s=>matches(s,q));
+  ROOT=buildTree(list);
+  const max=Math.max(1,...[...ROOT.kids.values()].map(k=>k.total));
+  $("#totals").innerHTML=`<span><b>${list.length}</b>sessions</span><span><b>${new Set(list.map(s=>s.cwd)).size}</b>dossiers</span>`;
+  const rows=[];
+  const walk=(n,guides)=>{const kids=[...n.kids.values()].sort((a,b)=>b.last-a.last);
+    kids.forEach((k,i)=>{const lastKid=i===kids.length-1,hasKids=k.kids.size>0,isOpen=q||open.has(k.path);
+      const g=guides.map(v=>`<span class="${v?"v":""}"></span>`).join("")+`<span class="${lastKid?"l":"t"}"></span>`;
+      const parts=k.name.split("/"),nm=parts.length>1?`<span class="dim">${esc(parts.slice(0,-1).join("/"))}/</span>${esc(parts.at(-1))}`:esc(k.name);
+      rows.push(`<button class="node ${hueOf(k.path)!==null?"tinted":""} ${k.own.length?"has-own":""} ${k.path===curPath?"sel":""}"${hueAttr(k.path)} data-p="${esc(k.path)}" role="treeitem" aria-expanded="${hasKids?!!isOpen:""}" title="${esc(short(k.path))}">
+        <span class="guides">${g}</span><span class="twisty ${hasKids?"":"leaf"} ${isOpen?"open":""}" data-tw>${icon("chev",12)}</span>
+        <span class="ico">${icon("folder",14)}</span><span class="name">${nm}</span>
+        <span class="meter"><i style="width:${Math.max(8,Math.sqrt(k.total/max)*100)}%"></i></span>
+        ${k.live?`<span class="live" title="Une session en cours ici · dernière activité ${ago(k.last)}"></span>`:""}<span class="count">${k.total}</span></button>`);
+      if(hasKids&&isOpen)walk(k,[...guides,!lastKid]);});
+  };
+  walk(ROOT,[]);
+  $("#treeBody").innerHTML=rows.join("")||`<div class="empty"><p>Aucun dossier ne correspond à « ${esc(q)} ».</p></div>`;
+  renderList(list);
+}
+function sessionsUnder(path,list){return list.filter(s=>s.cwd===path||s.cwd.startsWith(path+"/"))}
+function bucket(t){const d=new Date(t*1000),now=new Date(),day=86400000,start=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  if(d>=start)return"Aujourd'hui";if(d>=start-day)return"Hier";if(d>=start-6*day)return"Cette semaine";
+  return d.toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}
+function vol(n){const lv=n<3?1:n<10?2:n<30?3:n<80?4:5;return`<span class="vol">${[4,6,8,10,12].map((h,i)=>`<i class="${i<lv?"on":""}" style="height:${h-2}px"></i>`).join("")}</span>`}
+function renderList(list){
+  const box=$("#sessions");
+  if(!curPath){$("#listSub").textContent="";box.innerHTML=`<div class="empty"><p>Sélectionne un dossier.</p></div>`;return}
+  const ss=sessionsUnder(curPath,list),ls=$("#listSub"),lh=hueOf(curPath);ls.textContent=short(curPath);ls.className="sub"+(lh!==null?" hue":"");ls.style.setProperty("--h",lh??"");
+  if(!ss.length){box.innerHTML=`<div class="empty"><p>Aucune session ici${$("#q").value?" pour cette recherche":""}.</p></div>`;return}
+  let h="",g=null;
+  for(const s of ss){const b=bucket(s.mtime);if(b!==g){g=b;h+=`<div class="group">${esc(b)}</div>`}
+    const sub=s.cwd!==curPath?`<span class="path hue"${hueAttr(s.cwd)}>./${esc(s.cwd.slice(curPath.length+1))}</span>`:"";
+    h+=`<button class="sess ${s.id===curSid?"sel":""}" data-s="${s.id}"><div class="trow">${Date.now()/1000-s.mtime<LIVE_S?`<span class="live" title="En cours · dernière activité ${ago(s.mtime)}"></span>`:""}<div class="t">${esc(title(s))}</div></div>
+      <div class="m"><span title="Dernière activité : ${new Date(s.mtime*1000).toLocaleString("fr-FR")}">${icon("clock",12)}${ago(s.mtime)}</span><span title="Volume de la session : ${s.user} message${s.user>1?"s":""} de ta part&#10;1 cran : moins de 3 · 2 : moins de 10 · 3 : moins de 30 · 4 : moins de 80 · 5 : 80 et plus">${vol(s.user)}${s.user}</span>${s.branch&&s.branch!=="HEAD"?`<span>${icon("branch",12)}${esc(s.branch)}</span>`:""}${sub}</div></button>`}
+  box.innerHTML=h;
+}
+function md(src){
+  const out=[],parts=String(src).split(/```/);
+  parts.forEach((chunk,i)=>{
+    if(i%2){const nl=chunk.indexOf("\n");out.push(`<pre><code>${esc(nl>=0?chunk.slice(nl+1):chunk).replace(/\n$/,"")}</code></pre>`);return}
+    const inline=t=>esc(t).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+    let list=null;
+    for(const raw of chunk.split(/\n{2,}/)){const lines=raw.split("\n").filter(l=>l.trim());if(!lines.length)continue;
+      if(lines.every(l=>/^\s*([-*]|\d+\.)\s/.test(l))){const ord=/^\s*\d+\./.test(lines[0]);out.push(`<${ord?"ol":"ul"}>${lines.map(l=>`<li>${inline(l.replace(/^\s*([-*]|\d+\.)\s/,""))}</li>`).join("")}</${ord?"ol":"ul"}>`);continue}
+      const hm=lines[0].match(/^#{1,4}\s+(.*)/);if(hm&&lines.length===1){out.push(`<h3>${inline(hm[1])}</h3>`);continue}
+      out.push(`<p>${lines.map(inline).join("<br>")}</p>`)}
+  });
+  return out.join("");
+}
+function merge(msgs){const out=[];for(const m of msgs){const p=out.at(-1);if(p&&p.role==="assistant"&&m.role==="assistant")p.text+="\n"+m.text;else out.push({...m})}return out}
+function renderMsg(m){
+  const when=m.ts?new Date(m.ts).toLocaleString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+  if(m.role==="user")return`<div class="turn user"><div class="av">P</div><div class="bubble"><div class="who"><b>Toi</b>${when}</div><div class="body">${md(m.text)}</div></div></div>`;
+  const segs=[];for(const l of m.text.split("\n")){const k=l.startsWith("→ ")?"tool":"text",p=segs.at(-1);if(p&&p.k===k)p.v.push(l);else segs.push({k,v:[l]})}
+  const html=segs.map(g=>g.k==="tool"?`<details class="tools"${TOOLS_OPEN?" open":""}><summary>${icon("chev",10)}<span class="sl">${g.v.length} appel${g.v.length>1?"s":""} d'outils · ${esc([...new Set(g.v.map(t=>t.split(" ")[1]))].join(", "))}</span></summary><div class="toolist">${g.v.map(t=>{const[,n,...r]=t.split(" ");return`<div class="tool"><b>${esc(n)}</b><span>${esc(r.join(" "))}</span></div>`}).join("")}</div></details>`:(g.v.join("\n").trim()?`<div class="body">${md(g.v.join("\n").trim())}</div>`:"")).join("");
+  return`<div class="turn assistant"><div class="av">C</div><div class="bubble"><div class="who"><b>Claude</b>${when}</div><div class="card">${html}</div></div></div>`;
+}
+async function showSession(sid){
+  curSid=sid;syncHash();renderList(DATA.filter(s=>matches(s,$("#q").value.toLowerCase().trim())));
+  const s=DATA.find(x=>x.id===sid);if(!s)return;
+  const cmd=`cd ${JSON.stringify(s.cwd)} && claude --resume ${sid}`;
+  const v=$("#view");
+  v.innerHTML=`<div class="vhead"><h1>${esc(title(s))}</h1><div class="vmeta">
+    <span class="hue"${hueAttr(s.cwd)}>${icon("folder",13)}<code>${esc(short(s.cwd))}</code></span>
+    ${s.branch&&s.branch!=="HEAD"?`<span>${icon("branch",13)}${esc(s.branch)}</span>`:""}
+    <span>${icon("clock",13)}${s.start?new Date(s.start).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"}):""}</span>
+    <span>${icon("msg",13)}${s.user} messages</span>
+    <span class="vtools"><span class="finder" id="finder" hidden><span id="fcount"></span><button class="up" id="fprev" title="Occurrence précédente (Maj+Entrée)">${icon("chev",12)}</button><button class="dn" id="fnext" title="Occurrence suivante (Entrée)">${icon("chev",12)}</button></span>
+    <button class="copy" id="tt" aria-pressed="${TOOLS_OPEN}">${icon("chev",12)}${TOOLS_OPEN?"Replier":"Déplier"} les outils</button>
+    <button class="copy" id="cp" title="${esc(cmd)}">${icon("copy",13)}Copier la commande de reprise</button></span></div></div>
+    <div class="loading"></div><div class="scroll" id="threadBox"></div>`;
+  $("#cp").onclick=()=>navigator.clipboard.writeText(cmd).then(()=>toast("Commande copiée"),()=>toast("Copie impossible : "+cmd));
+  const r=await fetch("/api/session/"+sid).catch(()=>null);if(curSid!==sid)return;
+  v.querySelector(".loading")?.remove();
+  const msgs=r&&r.ok?await r.json():null;
+  THREAD=msgs&&msgs.length?`<div class="thread">${merge(msgs).map(renderMsg).join("")}</div>`:"";
+  $("#threadBox").innerHTML=msgs===null?`<div class="empty"><p>Impossible de charger cette session.</p></div>`:msgs.length?THREAD:`<div class="empty"><p>Transcript vide.</p></div>`;
+  highlight(true);
+}
+function highlight(jump){const box=$("#threadBox");if(!box||!THREAD)return;const q=$("#q").value.trim().toLowerCase();
+  box.innerHTML=THREAD;MARKS=[];MI=-1;
+  if(q){const w=document.createTreeWalker(box,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+    for(const n of nodes){const t=n.nodeValue,lt=t.toLowerCase();let i=lt.indexOf(q);if(i<0)continue;const f=document.createDocumentFragment();let last=0;
+      while(i>=0){f.append(t.slice(last,i));const m=document.createElement("mark");m.textContent=t.slice(i,i+q.length);f.append(m);MARKS.push(m);last=i+q.length;i=lt.indexOf(q,last)}
+      f.append(t.slice(last));n.replaceWith(f)}}
+  const fd=$("#finder");if(fd){fd.hidden=!q;$("#fcount").textContent=MARKS.length?"":"0 résultat"}
+  if(MARKS.length&&jump)goMark(0);else if(MARKS.length)$("#fcount").textContent=`${MARKS.length} résultats`}
+function goMark(i){if(!MARKS.length)return;MARKS[MI]?.classList.remove("cur");MI=(i+MARKS.length)%MARKS.length;const m=MARKS[MI];
+  const d=m.closest("details");if(d)d.open=true;m.classList.add("cur");m.scrollIntoView({block:"center"});$("#fcount").textContent=`${MI+1} / ${MARKS.length}`}
+$("#view").addEventListener("click",e=>{if(e.target.closest("#fnext"))goMark(MI+1);else if(e.target.closest("#fprev"))goMark(MI-1);
+  else if(e.target.closest("#tt")){TOOLS_OPEN=!TOOLS_OPEN;try{localStorage.setItem("ccs-tools",TOOLS_OPEN?"1":"0")}catch{}
+    document.querySelectorAll("#threadBox details.tools").forEach(d=>d.open=TOOLS_OPEN);THREAD=THREAD.replace(/<details class="tools"( open)?>/g,`<details class="tools"${TOOLS_OPEN?" open":""}>`);
+    const b=$("#tt");b.setAttribute("aria-pressed",TOOLS_OPEN);b.lastChild.textContent=(TOOLS_OPEN?"Replier":"Déplier")+" les outils"}});
+function syncHash(){const h=new URLSearchParams();if(curPath)h.set("p",short(curPath));if(curSid)h.set("s",curSid);const q=$("#q").value.trim();if(q)h.set("q",q);
+  history.replaceState(null,"",h.size?"#"+h.toString().replace(/%2F/g,"/").replace(/%7E/g,"~"):location.pathname)}
+$("#treeBody").onclick=e=>{const n=e.target.closest(".node");if(!n)return;const p=n.dataset.p;
+  if(e.target.closest("[data-tw]")||p===curPath){open.has(p)?open.delete(p):open.add(p)}else{curPath=p;open.add(p)}
+  renderTree();syncHash()};
+$("#sessions").onclick=e=>{const it=e.target.closest(".sess");if(it)showSession(it.dataset.s)};
+let qt;$("#q").oninput=()=>{renderTree();syncHash();clearTimeout(qt);qt=setTimeout(()=>highlight(true),250)};
+$("#q").onkeydown=e=>{if(e.key==="Enter"&&MARKS.length){e.preventDefault();goMark(MI+(e.shiftKey?-1:1))}};
+addEventListener("keydown",e=>{if(e.key==="/"&&document.activeElement!==$("#q")){e.preventDefault();$("#q").focus()}if(e.key==="Escape"){$("#q").value="";renderTree();syncHash();highlight(false)}});
+async function load(){try{const r=await fetch("/api/sessions"),j=await r.json();DATA=j.sessions;HOME=j.home;assignHues();
+  const first=!ROOT,expand=c=>{let p=HOME;for(const part of c.slice(HOME.length).split("/").filter(Boolean)){p+="/"+part;open.add(p)}};
+  if(first){for(const s of DATA.slice(0,8))expand(s.cwd);
+    const h=new URLSearchParams(location.hash.slice(1)),hp=h.get("p"),hs=h.get("s");
+    if(h.get("q"))$("#q").value=h.get("q");
+    if(hp){curPath=hp.startsWith("~")?HOME+hp.slice(1):hp;expand(curPath)}
+    renderTree();if(hs&&DATA.some(s=>s.id===hs))showSession(hs);return}
+  renderTree()}catch{ $("#treeBody").innerHTML=`<div class="empty"><p>Serveur injoignable. Relance cc-sessions-web.</p></div>`}}
+const EMPTY_VIEW=$("#view").innerHTML;
+$("#reload").onclick=async()=>{const b=$("#reload");b.disabled=true;b.classList.add("busy");await load();b.disabled=false;b.classList.remove("busy");toast(`Arbre rechargé · ${DATA.length} sessions`)};
+$("#reset").onclick=()=>{$("#q").value="";curPath=null;curSid=null;open=new Set();ROOT=null;$("#view").innerHTML=EMPTY_VIEW;THREAD="";MARKS=[];history.replaceState(null,"",location.pathname);load()};
+load();setInterval(()=>{if(!document.hidden)load()},30000);
+</script></body></html>
