@@ -20,13 +20,17 @@ except SyntaxError as e:
   "$root/src/cc-sessions-web.html")
     tmp=$(mktemp --suffix=.js)
     trap 'rm -f "$tmp"' EXIT
-    # Pad with newlines so node's line numbers match the HTML file
+    # Keep every inline <script> block, blank out the rest but keep its newlines,
+    # so node's line numbers match the HTML file
     python3 -c '
 import re, sys
 s = open(sys.argv[1]).read()
-m = re.search(r"<script>(.*)</script>", s, re.S)
-if m:
-    sys.stdout.write("\n" * s[:m.start(1)].count("\n") + m[1])
+out, pos = [], 0
+for m in re.finditer(r"<script>(.*?)</script>", s, re.S):
+    out.append("\n" * s[pos:m.start(1)].count("\n"))
+    out.append(m[1])
+    pos = m.end(1)
+sys.stdout.write("".join(out))
 ' "$f" >"$tmp"
     out=$(node --check "$tmp" 2>&1)
     out=${out//$tmp/$f}
