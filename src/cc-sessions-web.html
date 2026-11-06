@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sessions Claude</title>
+<title>Claude Sessions</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22%3E%3Cpath d=%22M4 3v14M4 7h5M4 14h5%22 stroke=%22%2322a07a%22 stroke-width=%222%22 fill=%22none%22/%3E%3Crect x=%2210%22 y=%224.5%22 width=%227%22 height=%225%22 rx=%221.3%22 fill=%22%2322a07a%22/%3E%3Crect x=%2210%22 y=%2211.5%22 width=%227%22 height=%225%22 rx=%221.3%22 fill=%22%2322a07a%22/%3E%3C/svg%3E">
 <style>
 :root{
@@ -183,26 +183,26 @@ mark.cur{background:oklch(0.82 0.16 85);color:oklch(0.22 0.03 85);box-shadow:0 0
   <symbol id="i-tree" viewBox="0 0 20 20"><path d="M4 3v14M4 7h5M4 14h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="10" y="4.5" width="7" height="5" rx="1.3" fill="currentColor"/><rect x="10" y="11.5" width="7" height="5" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
 </svg>
 <header>
-  <div class="brand"><svg width="20" height="20"><use href="#i-tree"/></svg><span>Sessions Claude</span></div>
-  <label class="search"><svg width="15" height="15"><use href="#i-search"/></svg><input id="q" placeholder="Chercher un dossier, un titre, un mot dans tes prompts…" autocomplete="off"><kbd>/</kbd></label>
+  <div class="brand"><svg width="20" height="20"><use href="#i-tree"/></svg><span>Claude Sessions</span></div>
+  <label class="search"><svg width="15" height="15"><use href="#i-search"/></svg><input id="q" placeholder="Search a folder, a title, a word from your prompts…" autocomplete="off"><kbd>/</kbd></label>
   <div class="totals" id="totals"></div>
-  <div class="actions"><button class="act" id="reload" title="Relire les sessions sur le disque (garde la sélection)"><svg width="13" height="13"><use href="#i-reload"/></svg>Recharger</button><button class="act" id="reset" title="Vider la recherche, la sélection et replier l'arbre"><svg width="13" height="13"><use href="#i-reset"/></svg>Réinitialiser</button></div>
+  <div class="actions"><button class="act" id="reload" title="Re-read sessions from disk (keeps the selection)"><svg width="13" height="13"><use href="#i-reload"/></svg>Reload</button><button class="act" id="reset" title="Clear search and selection, collapse the tree"><svg width="13" height="13"><use href="#i-reset"/></svg>Reset</button></div>
 </header>
 <main>
-  <section class="col" id="tree"><div class="col-head"><h2>Dossiers</h2><span class="sub">~</span></div><div class="scroll"><div class="tree" id="treeBody" role="tree"></div></div></section>
+  <section class="col" id="tree"><div class="col-head"><h2>Folders</h2><span class="sub">~</span></div><div class="scroll"><div class="tree" id="treeBody" role="tree"></div></div></section>
   <section class="col" id="list"><div class="col-head"><h2>Sessions</h2><span class="sub" id="listSub"></span></div><div class="scroll" id="sessions"></div></section>
-  <section class="col" id="view"><div class="empty"><div><svg width="40" height="40"><use href="#i-msg"/></svg><p>Choisis un dossier dans l'arbre à gauche, puis une session.</p></div></div></section>
+  <section class="col" id="view"><div class="empty"><div><svg width="40" height="40"><use href="#i-msg"/></svg><p>Pick a folder in the tree on the left, then a session.</p></div></div></section>
 </main>
 <div id="toast" role="status"></div>
 <script>
-const LIVE_S=120;let TOOLS_OPEN=false;try{TOOLS_OPEN=localStorage.getItem("ccs-tools")==="1"}catch{}
+const LIVE_S=120,LOCALE="en-US";let TOOLS_OPEN=false;try{TOOLS_OPEN=localStorage.getItem("ccs-tools")==="1"}catch{}
 let MARKS=[],MI=-1,THREAD="",HUES=new Map(),DATA=[],HOME="",ROOT=null,curPath=null,curSid=null,open=new Set();
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const icon=(id,n=13)=>`<svg width="${n}" height="${n}"><use href="#i-${id}"/></svg>`;
 const short=p=>p.startsWith(HOME)?"~"+p.slice(HOME.length):p;
-const title=s=>s.title||s.first||"(sans titre)";
-const ago=t=>{const s=Date.now()/1000-t;if(s<90)return"à l'instant";if(s<3600)return`il y a ${Math.round(s/60)} min`;if(s<86400)return`il y a ${Math.round(s/3600)} h`;if(s<86400*7)return`il y a ${Math.round(s/86400)} j`;return new Date(t*1000).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})};
+const title=s=>s.title||s.first||"(untitled)";
+const ago=t=>{const s=Date.now()/1000-t;if(s<90)return"just now";if(s<3600)return`${Math.round(s/60)} min ago`;if(s<86400)return`${Math.round(s/3600)} h ago`;if(s<86400*7)return`${Math.round(s/86400)} d ago`;return new Date(t*1000).toLocaleDateString(LOCALE,{day:"numeric",month:"short"})};
 let tt;const toast=m=>{const e=$("#toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),2000)};
 
 function matches(s,q){return !q||(s.cwd+" "+title(s)+" "+(s.prompts||"")+" "+(s.branch||"")).toLowerCase().includes(q)}
@@ -215,14 +215,14 @@ function buildTree(list){
     n.own.push(s);
   }
   (function tot(n){n.total=n.own.length;for(const k of n.kids.values())n.total+=tot(k);n.last=Math.max(0,...n.own.map(s=>s.mtime),...[...n.kids.values()].map(k=>k.last));n.live=Date.now()/1000-n.last<LIVE_S;return n.total})(root);
-  // compresse les chaînes de dossiers sans session propre et à enfant unique (workspace/ldp/apiv2)
+  // collapse chains of folders with no own session and a single child (workspace/ldp/apiv2)
   (function comp(n){for(const [k,c] of [...n.kids]){let x=c,label=c.name;while(!x.own.length&&x.kids.size===1){x=[...x.kids.values()][0];label+="/"+x.name}
     if(x!==c){n.kids.delete(k);n.kids.set(label,{...x,name:label})}comp(n.kids.get(label)||x)}})(root);
   return root;
 }
 const PALETTE=[165,250,305,30,85,200,345,130,275,55];
 function assignHues(){const full=buildTree(DATA),groups=[],half=full.total/2;
-  // une couleur par branche ; on descend tant qu'un dossier concentre plus de la moitié des sessions
+  // one hue per branch; descend while a folder holds more than half of all sessions
   (function pick(n){for(const k of n.kids.values()){if(k.kids.size&&k.total>half)pick(k);else groups.push(k.path)}})(full);
   groups.sort();HUES=new Map(groups.map((g,i)=>[g,PALETTE[i%PALETTE.length]]))}
 function hueOf(path){let best=null,len=-1;for(const [g,h] of HUES)if((path===g||path.startsWith(g+"/"))&&g.length>len){best=h;len=g.length}return best}
@@ -231,7 +231,7 @@ function renderTree(){
   const q=$("#q").value.toLowerCase().trim(),list=DATA.filter(s=>matches(s,q));
   ROOT=buildTree(list);
   const max=Math.max(1,...[...ROOT.kids.values()].map(k=>k.total));
-  $("#totals").innerHTML=`<span><b>${list.length}</b>sessions</span><span><b>${new Set(list.map(s=>s.cwd)).size}</b>dossiers</span>`;
+  $("#totals").innerHTML=`<span><b>${list.length}</b>sessions</span><span><b>${new Set(list.map(s=>s.cwd)).size}</b>folders</span>`;
   const rows=[];
   const walk=(n,guides)=>{const kids=[...n.kids.values()].sort((a,b)=>b.last-a.last);
     kids.forEach((k,i)=>{const lastKid=i===kids.length-1,hasKids=k.kids.size>0,isOpen=q||open.has(k.path);
@@ -241,28 +241,28 @@ function renderTree(){
         <span class="guides">${g}</span><span class="twisty ${hasKids?"":"leaf"} ${isOpen?"open":""}" data-tw>${icon("chev",12)}</span>
         <span class="ico">${icon("folder",14)}</span><span class="name">${nm}</span>
         <span class="meter"><i style="width:${Math.max(8,Math.sqrt(k.total/max)*100)}%"></i></span>
-        ${k.live?`<span class="live" title="Une session en cours ici · dernière activité ${ago(k.last)}"></span>`:""}<span class="count">${k.total}</span></button>`);
+        ${k.live?`<span class="live" title="A session is active here · last activity ${ago(k.last)}"></span>`:""}<span class="count">${k.total}</span></button>`);
       if(hasKids&&isOpen)walk(k,[...guides,!lastKid]);});
   };
   walk(ROOT,[]);
-  $("#treeBody").innerHTML=rows.join("")||`<div class="empty"><p>Aucun dossier ne correspond à « ${esc(q)} ».</p></div>`;
+  $("#treeBody").innerHTML=rows.join("")||`<div class="empty"><p>No folder matches “${esc(q)}”.</p></div>`;
   renderList(list);
 }
 function sessionsUnder(path,list){return list.filter(s=>s.cwd===path||s.cwd.startsWith(path+"/"))}
 function bucket(t){const d=new Date(t*1000),now=new Date(),day=86400000,start=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
-  if(d>=start)return"Aujourd'hui";if(d>=start-day)return"Hier";if(d>=start-6*day)return"Cette semaine";
-  return d.toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}
+  if(d>=start)return"Today";if(d>=start-day)return"Yesterday";if(d>=start-6*day)return"This week";
+  return d.toLocaleDateString(LOCALE,{month:"long",year:"numeric"})}
 function vol(n){const lv=n<3?1:n<10?2:n<30?3:n<80?4:5;return`<span class="vol">${[4,6,8,10,12].map((h,i)=>`<i class="${i<lv?"on":""}" style="height:${h-2}px"></i>`).join("")}</span>`}
 function renderList(list){
   const box=$("#sessions");
-  if(!curPath){$("#listSub").textContent="";box.innerHTML=`<div class="empty"><p>Sélectionne un dossier.</p></div>`;return}
+  if(!curPath){$("#listSub").textContent="";box.innerHTML=`<div class="empty"><p>Select a folder.</p></div>`;return}
   const ss=sessionsUnder(curPath,list),ls=$("#listSub"),lh=hueOf(curPath);ls.textContent=short(curPath);ls.className="sub"+(lh!==null?" hue":"");ls.style.setProperty("--h",lh??"");
-  if(!ss.length){box.innerHTML=`<div class="empty"><p>Aucune session ici${$("#q").value?" pour cette recherche":""}.</p></div>`;return}
+  if(!ss.length){box.innerHTML=`<div class="empty"><p>No sessions here${$("#q").value?" for this search":""}.</p></div>`;return}
   let h="",g=null;
   for(const s of ss){const b=bucket(s.mtime);if(b!==g){g=b;h+=`<div class="group">${esc(b)}</div>`}
     const sub=s.cwd!==curPath?`<span class="path hue"${hueAttr(s.cwd)}>./${esc(s.cwd.slice(curPath.length+1))}</span>`:"";
-    h+=`<button class="sess ${s.id===curSid?"sel":""}" data-s="${s.id}"><div class="trow">${Date.now()/1000-s.mtime<LIVE_S?`<span class="live" title="En cours · dernière activité ${ago(s.mtime)}"></span>`:""}<div class="t">${esc(title(s))}</div></div>
-      <div class="m"><span title="Dernière activité : ${new Date(s.mtime*1000).toLocaleString("fr-FR")}">${icon("clock",12)}${ago(s.mtime)}</span><span title="Volume de la session : ${s.user} message${s.user>1?"s":""} de ta part&#10;1 cran : moins de 3 · 2 : moins de 10 · 3 : moins de 30 · 4 : moins de 80 · 5 : 80 et plus">${vol(s.user)}${s.user}</span>${s.branch&&s.branch!=="HEAD"?`<span>${icon("branch",12)}${esc(s.branch)}</span>`:""}${sub}</div></button>`}
+    h+=`<button class="sess ${s.id===curSid?"sel":""}" data-s="${s.id}"><div class="trow">${Date.now()/1000-s.mtime<LIVE_S?`<span class="live" title="Active · last activity ${ago(s.mtime)}"></span>`:""}<div class="t">${esc(title(s))}</div></div>
+      <div class="m"><span title="Last activity: ${new Date(s.mtime*1000).toLocaleString(LOCALE)}">${icon("clock",12)}${ago(s.mtime)}</span><span title="Session size: ${s.user} message${s.user>1?"s":""} from you&#10;1 bar: under 3 · 2: under 10 · 3: under 30 · 4: under 80 · 5: 80 or more">${vol(s.user)}${s.user}</span>${s.branch&&s.branch!=="HEAD"?`<span>${icon("branch",12)}${esc(s.branch)}</span>`:""}${sub}</div></button>`}
   box.innerHTML=h;
 }
 function md(src){
@@ -280,10 +280,10 @@ function md(src){
 }
 function merge(msgs){const out=[];for(const m of msgs){const p=out.at(-1);if(p&&p.role==="assistant"&&m.role==="assistant")p.text+="\n"+m.text;else out.push({...m})}return out}
 function renderMsg(m){
-  const when=m.ts?new Date(m.ts).toLocaleString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
-  if(m.role==="user")return`<div class="turn user"><div class="av">P</div><div class="bubble"><div class="who"><b>Toi</b>${when}</div><div class="body">${md(m.text)}</div></div></div>`;
+  const when=m.ts?new Date(m.ts).toLocaleString(LOCALE,{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+  if(m.role==="user")return`<div class="turn user"><div class="av">Y</div><div class="bubble"><div class="who"><b>You</b>${when}</div><div class="body">${md(m.text)}</div></div></div>`;
   const segs=[];for(const l of m.text.split("\n")){const k=l.startsWith("→ ")?"tool":"text",p=segs.at(-1);if(p&&p.k===k)p.v.push(l);else segs.push({k,v:[l]})}
-  const html=segs.map(g=>g.k==="tool"?`<details class="tools"${TOOLS_OPEN?" open":""}><summary>${icon("chev",10)}<span class="sl">${g.v.length} appel${g.v.length>1?"s":""} d'outils · ${esc([...new Set(g.v.map(t=>t.split(" ")[1]))].join(", "))}</span></summary><div class="toolist">${g.v.map(t=>{const[,n,...r]=t.split(" ");return`<div class="tool"><b>${esc(n)}</b><span>${esc(r.join(" "))}</span></div>`}).join("")}</div></details>`:(g.v.join("\n").trim()?`<div class="body">${md(g.v.join("\n").trim())}</div>`:"")).join("");
+  const html=segs.map(g=>g.k==="tool"?`<details class="tools"${TOOLS_OPEN?" open":""}><summary>${icon("chev",10)}<span class="sl">${g.v.length} tool call${g.v.length>1?"s":""} · ${esc([...new Set(g.v.map(t=>t.split(" ")[1]))].join(", "))}</span></summary><div class="toolist">${g.v.map(t=>{const[,n,...r]=t.split(" ");return`<div class="tool"><b>${esc(n)}</b><span>${esc(r.join(" "))}</span></div>`}).join("")}</div></details>`:(g.v.join("\n").trim()?`<div class="body">${md(g.v.join("\n").trim())}</div>`:"")).join("");
   return`<div class="turn assistant"><div class="av">C</div><div class="bubble"><div class="who"><b>Claude</b>${when}</div><div class="card">${html}</div></div></div>`;
 }
 async function showSession(sid){
@@ -294,18 +294,18 @@ async function showSession(sid){
   v.innerHTML=`<div class="vhead"><h1>${esc(title(s))}</h1><div class="vmeta">
     <span class="hue"${hueAttr(s.cwd)}>${icon("folder",13)}<code>${esc(short(s.cwd))}</code></span>
     ${s.branch&&s.branch!=="HEAD"?`<span>${icon("branch",13)}${esc(s.branch)}</span>`:""}
-    <span>${icon("clock",13)}${s.start?new Date(s.start).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"}):""}</span>
+    <span>${icon("clock",13)}${s.start?new Date(s.start).toLocaleString(LOCALE,{dateStyle:"medium",timeStyle:"short"}):""}</span>
     <span>${icon("msg",13)}${s.user} messages</span>
-    <span class="vtools"><span class="finder" id="finder" hidden><span id="fcount"></span><button class="up" id="fprev" title="Occurrence précédente (Maj+Entrée)">${icon("chev",12)}</button><button class="dn" id="fnext" title="Occurrence suivante (Entrée)">${icon("chev",12)}</button></span>
-    <button class="copy" id="tt" aria-pressed="${TOOLS_OPEN}">${icon("chev",12)}${TOOLS_OPEN?"Replier":"Déplier"} les outils</button>
-    <button class="copy" id="cp" title="${esc(cmd)}">${icon("copy",13)}Copier la commande de reprise</button></span></div></div>
+    <span class="vtools"><span class="finder" id="finder" hidden><span id="fcount"></span><button class="up" id="fprev" title="Previous match (Shift+Enter)">${icon("chev",12)}</button><button class="dn" id="fnext" title="Next match (Enter)">${icon("chev",12)}</button></span>
+    <button class="copy" id="tt" aria-pressed="${TOOLS_OPEN}">${icon("chev",12)}${TOOLS_OPEN?"Collapse":"Expand"} tools</button>
+    <button class="copy" id="cp" title="${esc(cmd)}">${icon("copy",13)}Copy resume command</button></span></div></div>
     <div class="loading"></div><div class="scroll" id="threadBox"></div>`;
-  $("#cp").onclick=()=>navigator.clipboard.writeText(cmd).then(()=>toast("Commande copiée"),()=>toast("Copie impossible : "+cmd));
+  $("#cp").onclick=()=>navigator.clipboard.writeText(cmd).then(()=>toast("Command copied"),()=>toast("Copy failed: "+cmd));
   const r=await fetch("/api/session/"+sid).catch(()=>null);if(curSid!==sid)return;
   v.querySelector(".loading")?.remove();
   const msgs=r&&r.ok?await r.json():null;
   THREAD=msgs&&msgs.length?`<div class="thread">${merge(msgs).map(renderMsg).join("")}</div>`:"";
-  $("#threadBox").innerHTML=msgs===null?`<div class="empty"><p>Impossible de charger cette session.</p></div>`:msgs.length?THREAD:`<div class="empty"><p>Transcript vide.</p></div>`;
+  $("#threadBox").innerHTML=msgs===null?`<div class="empty"><p>Could not load this session.</p></div>`:msgs.length?THREAD:`<div class="empty"><p>Empty transcript.</p></div>`;
   highlight(true);
 }
 function highlight(jump){const box=$("#threadBox");if(!box||!THREAD)return;const q=$("#q").value.trim().toLowerCase();
@@ -314,14 +314,14 @@ function highlight(jump){const box=$("#threadBox");if(!box||!THREAD)return;const
     for(const n of nodes){const t=n.nodeValue,lt=t.toLowerCase();let i=lt.indexOf(q);if(i<0)continue;const f=document.createDocumentFragment();let last=0;
       while(i>=0){f.append(t.slice(last,i));const m=document.createElement("mark");m.textContent=t.slice(i,i+q.length);f.append(m);MARKS.push(m);last=i+q.length;i=lt.indexOf(q,last)}
       f.append(t.slice(last));n.replaceWith(f)}}
-  const fd=$("#finder");if(fd){fd.hidden=!q;$("#fcount").textContent=MARKS.length?"":"0 résultat"}
-  if(MARKS.length&&jump)goMark(0);else if(MARKS.length)$("#fcount").textContent=`${MARKS.length} résultats`}
+  const fd=$("#finder");if(fd){fd.hidden=!q;$("#fcount").textContent=MARKS.length?"":"0 results"}
+  if(MARKS.length&&jump)goMark(0);else if(MARKS.length)$("#fcount").textContent=`${MARKS.length} result${MARKS.length>1?"s":""}`}
 function goMark(i){if(!MARKS.length)return;MARKS[MI]?.classList.remove("cur");MI=(i+MARKS.length)%MARKS.length;const m=MARKS[MI];
   const d=m.closest("details");if(d)d.open=true;m.classList.add("cur");m.scrollIntoView({block:"center"});$("#fcount").textContent=`${MI+1} / ${MARKS.length}`}
 $("#view").addEventListener("click",e=>{if(e.target.closest("#fnext"))goMark(MI+1);else if(e.target.closest("#fprev"))goMark(MI-1);
   else if(e.target.closest("#tt")){TOOLS_OPEN=!TOOLS_OPEN;try{localStorage.setItem("ccs-tools",TOOLS_OPEN?"1":"0")}catch{}
     document.querySelectorAll("#threadBox details.tools").forEach(d=>d.open=TOOLS_OPEN);THREAD=THREAD.replace(/<details class="tools"( open)?>/g,`<details class="tools"${TOOLS_OPEN?" open":""}>`);
-    const b=$("#tt");b.setAttribute("aria-pressed",TOOLS_OPEN);b.lastChild.textContent=(TOOLS_OPEN?"Replier":"Déplier")+" les outils"}});
+    const b=$("#tt");b.setAttribute("aria-pressed",TOOLS_OPEN);b.lastChild.textContent=(TOOLS_OPEN?"Collapse":"Expand")+" tools"}});
 function syncHash(){const h=new URLSearchParams();if(curPath)h.set("p",short(curPath));if(curSid)h.set("s",curSid);const q=$("#q").value.trim();if(q)h.set("q",q);
   history.replaceState(null,"",h.size?"#"+h.toString().replace(/%2F/g,"/").replace(/%7E/g,"~"):location.pathname)}
 $("#treeBody").onclick=e=>{const n=e.target.closest(".node");if(!n)return;const p=n.dataset.p;
@@ -338,9 +338,9 @@ async function load(){try{const r=await fetch("/api/sessions"),j=await r.json();
     if(h.get("q"))$("#q").value=h.get("q");
     if(hp){curPath=hp.startsWith("~")?HOME+hp.slice(1):hp;expand(curPath)}
     renderTree();if(hs&&DATA.some(s=>s.id===hs))showSession(hs);return}
-  renderTree()}catch{ $("#treeBody").innerHTML=`<div class="empty"><p>Serveur injoignable. Relance cc-sessions-web.</p></div>`}}
+  renderTree()}catch{ $("#treeBody").innerHTML=`<div class="empty"><p>Server unreachable. Restart cc-sessions-web.</p></div>`}}
 const EMPTY_VIEW=$("#view").innerHTML;
-$("#reload").onclick=async()=>{const b=$("#reload");b.disabled=true;b.classList.add("busy");await load();b.disabled=false;b.classList.remove("busy");toast(`Arbre rechargé · ${DATA.length} sessions`)};
+$("#reload").onclick=async()=>{const b=$("#reload");b.disabled=true;b.classList.add("busy");await load();b.disabled=false;b.classList.remove("busy");toast(`Tree reloaded · ${DATA.length} sessions`)};
 $("#reset").onclick=()=>{$("#q").value="";curPath=null;curSid=null;open=new Set();ROOT=null;$("#view").innerHTML=EMPTY_VIEW;THREAD="";MARKS=[];history.replaceState(null,"",location.pathname);load()};
 load();setInterval(()=>{if(!document.hidden)load()},30000);
 </script></body></html>

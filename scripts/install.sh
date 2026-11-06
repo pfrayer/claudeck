@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Installe cc-sessions-web pour l'utilisateur courant :
-#   - lien ~/bin/cc-sessions-web -> src/cc-sessions-web
-#   - unit systemd utilisateur, activée et démarrée
-#   - ~/.config/cc-sessions-web/env (port), créé seulement s'il n'existe pas
+# Installs cc-sessions-web for the current user:
+#   - symlink ~/bin/cc-sessions-web -> src/cc-sessions-web
+#   - systemd user unit, enabled and started
+#   - ~/.config/cc-sessions-web/env (port), created only if missing
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN="$HOME/bin"
@@ -20,4 +20,4 @@ systemctl --user restart cc-sessions-web.service
 
 # shellcheck disable=SC1091
 . "$CONF_DIR/env"
-echo "cc-sessions-web actif : http://localhost:${CC_SESSIONS_WEB_PORT:-8765}/"
+echo "cc-sessions-web running: http://localhost:${CC_SESSIONS_WEB_PORT:-8765}/"

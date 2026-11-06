@@ -1,10 +1,10 @@
 [Unit]
-Description=cc-sessions-web : vue web locale des sessions Claude Code
+Description=cc-sessions-web: local web view of Claude Code sessions
 Documentation=file://%h/workspace/github/cc-sessions-web
 
 [Service]
 Type=simple
-# Port : surcharger CC_SESSIONS_WEB_PORT dans ~/.config/cc-sessions-web/env
+# Port: override CC_SESSIONS_WEB_PORT in ~/.config/cc-sessions-web/env
 Environment=CC_SESSIONS_WEB_PORT=8765
 EnvironmentFile=-%h/.config/cc-sessions-web/env
 ExecStart=%h/bin/cc-sessions-web --no-browser

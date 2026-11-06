@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""cc-sessions-web — vue web locale des sessions Claude Code, groupées par repo.
+"""cc-sessions-web — local web view of Claude Code sessions, grouped by folder.
 
-Lecture seule sur ~/.claude/projects. Écoute uniquement sur 127.0.0.1.
-Usage : cc-sessions-web [--port PORT] [--no-browser]
-Port : --port, sinon la variable CC_SESSIONS_WEB_PORT, sinon 8765.
+Read-only on ~/.claude/projects. Listens on 127.0.0.1 only.
+Usage: cc-sessions-web [--port PORT] [--no-browser]
+Port: --port, else $CC_SESSIONS_WEB_PORT, else 8765.
 """
 import argparse
 import json
@@ -23,7 +23,7 @@ _lock = threading.Lock()
 
 
 def _text_of(content, with_tools=False):
-    """Extrait le texte d'un message (str ou liste de blocs)."""
+    """Extract the text of a message (str or list of content blocks)."""
     if isinstance(content, str):
         return content
     parts = []
@@ -104,7 +104,7 @@ def all_sessions():
             with _lock:
                 _cache[str(path)] = (st.st_mtime, meta)
         if meta["user"] == 0:
-            continue  # session vide (lancée puis quittée)
+            continue  # empty session (started then quit)
         if not meta["cwd"]:
             meta["cwd"] = "?" + path.parent.name
         out.append(meta)
@@ -142,7 +142,7 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def _host_ok(self):
-        # Protection contre le DNS rebinding : seul localhost est accepté.
+        # DNS rebinding protection: only localhost is accepted.
         host = (self.headers.get("Host") or "").rsplit(":", 1)[0]
         return host in ("127.0.0.1", "localhost")
 
@@ -172,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 
-# La page est servie depuis le fichier voisin, relu à chaque requête (éditable sans redémarrer).
+# The page is served from the sibling file, re-read on every request (editable without restart).
 PAGE_FILE = Path(__file__).resolve().with_name("cc-sessions-web.html")
 
 
@@ -183,9 +183,9 @@ def port_arg(value):
     try:
         port = int(value)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"port invalide : {value!r}")
+        raise argparse.ArgumentTypeError(f"invalid port: {value!r}")
     if not 1024 <= port <= 65535:
-        raise argparse.ArgumentTypeError(f"port hors plage 1024-65535 : {port}")
+        raise argparse.ArgumentTypeError(f"port out of range 1024-65535: {port}")
     return port
 
 
@@ -193,12 +193,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=port_arg,
                     default=os.environ.get("CC_SESSIONS_WEB_PORT", DEFAULT_PORT),
-                    help=f"port HTTP (défaut : $CC_SESSIONS_WEB_PORT ou {DEFAULT_PORT})")
-    ap.add_argument("--no-browser", action="store_true")
+                    help=f"HTTP port (default: $CC_SESSIONS_WEB_PORT or {DEFAULT_PORT})")
+    ap.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
     args = ap.parse_args()
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     url = f"http://localhost:{args.port}/"
-    print(f"cc-sessions-web : {url}  (Ctrl+C pour arrêter)", flush=True)
+    print(f"cc-sessions-web : {url}  (Ctrl+C to stop)", flush=True)
     if not args.no_browser:
         threading.Timer(0.5, webbrowser.open, [url]).start()
     try:
