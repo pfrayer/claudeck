@@ -9,27 +9,28 @@ A local, read-only web view of your Claude Code sessions, organized as a tree of
 
 It reads `~/.claude/projects` and never writes to it. The server listens on `127.0.0.1` only.
 
-## Requirements
+## Quick try
 
-Python 3.9+, nothing else. The systemd install assumes Linux with a user systemd instance.
-
-## Run
+Needs Python 3.9+ and nothing else (no pip install). Works on Linux and macOS.
 
 ```bash
-./src/cc-sessions-web              # opens http://localhost:8765/
-./src/cc-sessions-web --port 9000 --no-browser
+git clone <repo-url> cc-sessions-web
+./cc-sessions-web/src/cc-sessions-web     # opens http://localhost:8765/ in your browser
 ```
 
-Port: `--port`, else `$CC_SESSIONS_WEB_PORT`, else `8765`.
+Options: `--port 9000` (or `$CC_SESSIONS_WEB_PORT`), `--no-browser`.
 
-## Install as a user service
+## Install
 
 ```bash
-./scripts/install.sh     # symlinks ~/bin/cc-sessions-web, installs and starts a systemd --user unit
-./scripts/uninstall.sh   # removes the unit and the symlink, keeps the config
+./scripts/install.sh
 ```
 
-To change the port, edit `~/.config/cc-sessions-web/env` and run `systemctl --user restart cc-sessions-web`.
+- Links `~/.local/bin/cc-sessions-web`, so you can run `cc-sessions-web` from anywhere.
+- On Linux with systemd, also installs and starts a user service, so the page is always up at http://localhost:8765/. To change its port, edit `~/.config/cc-sessions-web/env`, then run `systemctl --user restart cc-sessions-web`.
+- Elsewhere (macOS…), no service is installed: just run `cc-sessions-web` when you need it.
+
+`./scripts/uninstall.sh` removes the link and the service and keeps your config.
 
 ## Keyboard
 
