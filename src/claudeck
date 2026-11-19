@@ -4,9 +4,10 @@
 Read-only on ~/.claude/projects. Listens on 127.0.0.1 by default.
 Usage: claudeck [--port PORT] [--bind ADDR] [--allowed-host H[,H]] [--token T] [--no-browser]
 Port: --port, else $CLAUDECK_PORT, else 8765.
-Binding a non-loopback address (e.g. 0.0.0.0 behind a reverse proxy) requires a
-token: --token / $CLAUDECK_TOKEN, or a random one printed at startup. Open
-/?token=<T> once (sets a cookie) or send "Authorization: Bearer <T>".
+Binding a non-loopback address (e.g. `claudeck --bind 0.0.0.0` behind a reverse proxy)
+requires a token: --token / $CLAUDECK_TOKEN, else a random one. Ready-to-open URLs are
+printed at startup; /?token=<T> sets a cookie, or send "Authorization: Bearer <T>".
+Without --allowed-host any Host header is accepted in that mode (the token guards access).
 """
 import argparse
 import hmac
@@ -15,6 +16,7 @@ import json
 import os
 import re
 import secrets
+import socket
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -155,8 +157,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _host_ok(self):
         # DNS rebinding protection: only localhost and the --allowed-host names are accepted.
+        # ALLOWED_HOSTS is None when exposed without --allowed-host: any Host is accepted and the
+        # token alone guards access (a rebinding origin never holds the cookie).
         host = (self.headers.get("Host") or "").rsplit(":", 1)[0].lower()
-        return host in ALLOWED_HOSTS
+        return ALLOWED_HOSTS is None or host in ALLOWED_HOSTS
 
     def _token_ok(self):
         if TOKEN is None:
@@ -248,8 +252,24 @@ def hosts_arg(value):
     return hosts
 
 
+def _public_names(bind):
+    """Best-effort names/addresses to reach this host, for the startup banner (no traffic sent)."""
+    names = [] if bind == "0.0.0.0" else [bind]
+    if not names:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("192.0.2.1", 9))  # UDP connect: picks the outbound interface, sends nothing
+                names.append(s.getsockname()[0])
+        except OSError:
+            pass
+    fqdn = socket.getfqdn()
+    if fqdn and fqdn not in ("localhost", "localhost.localdomain"):
+        names.insert(0, fqdn)
+    return names
+
+
 def main():
-    global TOKEN
+    global TOKEN, ALLOWED_HOSTS
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=port_arg,
                     default=os.environ.get("CLAUDECK_PORT", DEFAULT_PORT),
@@ -261,7 +281,8 @@ def main():
                     help="extra accepted Host header names, comma-separated (default: $CLAUDECK_ALLOWED_HOSTS)")
     ap.add_argument("--token", default=os.environ.get("CLAUDECK_TOKEN") or None,
                     help="access token when not on loopback (default: $CLAUDECK_TOKEN, else random)")
-    ap.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
+    ap.add_argument("--no-browser", action="store_true",
+                    help="do not open a browser tab (implied on a non-loopback bind)")
     args = ap.parse_args()
     if isinstance(args.allowed_host, str):  # env default bypasses type=
         args.allowed_host = hosts_arg(args.allowed_host)
@@ -271,17 +292,24 @@ def main():
         if args.token is not None and not re.fullmatch(r"[A-Za-z0-9_-]{16,}", args.token):
             ap.error("--token must be at least 16 characters of [A-Za-z0-9_-]")
         TOKEN = args.token or secrets.token_urlsafe(24)
+        if not args.allowed_host:
+            ALLOWED_HOSTS = None
     srv = ThreadingHTTPServer((args.bind, args.port), Handler)
     url = f"http://localhost:{args.port}/"
-    print(f"claudeck : {url}  (Ctrl+C to stop)", flush=True)
-    if exposed:
-        print(f"WARNING: listening on {args.bind}:{args.port}, token required. "
-              f"Accepted Host names: {', '.join(sorted(ALLOWED_HOSTS))}", flush=True)
+    if not exposed:
+        print(f"claudeck : {url}  (Ctrl+C to stop)", flush=True)
+    else:
+        q = f"/?token={TOKEN}"
+        print(f"claudeck listening on {args.bind}:{args.port} (token required, Ctrl+C to stop)", flush=True)
+        print("Open one of (the token is then kept in a cookie):", flush=True)
+        for h in sorted(args.allowed_host):
+            print(f"  https://{h}{q}", flush=True)
+        for n in _public_names(args.bind):
+            print(f"  http://{n}:{args.port}{q}", flush=True)
+        print(f"  {url.rstrip('/')}{q}", flush=True)
         if not args.token:
-            print(f"Generated token (changes on restart): {TOKEN}  -> open /?token={TOKEN}", flush=True)
-        if not args.allowed_host:
-            print("Hint: add your proxy host name with --allowed-host, or requests get 403.", flush=True)
-        url += f"?token={TOKEN}"
+            print("Token generated for this run; set $CLAUDECK_TOKEN to keep it across restarts.", flush=True)
+        args.no_browser = True
     if not args.no_browser:
         threading.Timer(0.5, webbrowser.open, [url]).start()
     try:

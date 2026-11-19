@@ -3,7 +3,7 @@ Description=claudeck: local web view of Claude Code sessions
 
 [Service]
 Type=simple
-# Port: override CLAUDECK_PORT in ~/.config/claudeck/env
+# Port and remote access (CLAUDECK_BIND/TOKEN/ALLOWED_HOSTS): ~/.config/claudeck/env
 Environment=CLAUDECK_PORT=8765
 EnvironmentFile=-%h/.config/claudeck/env
 ExecStart=%h/.local/bin/claudeck --no-browser

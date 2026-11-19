@@ -32,7 +32,7 @@ The installed service runs `src/claudeck` straight through the symlink: Python c
 
 ## Architecture
 
-**`src/claudeck`** (Python script, no extension) — `ThreadingHTTPServer` bound to `127.0.0.1` by default (`--bind` / `$CLAUDECK_BIND`), with a `Host` header check (DNS-rebinding guard: `localhost`/`127.0.0.1` plus `--allowed-host` / `$CLAUDECK_ALLOWED_HOSTS`). A non-loopback bind requires a token (`--token` / `$CLAUDECK_TOKEN`, else random and printed): `/?token=` sets an HttpOnly cookie, or `Authorization: Bearer`. Three routes:
+**`src/claudeck`** (Python script, no extension) — `ThreadingHTTPServer` bound to `127.0.0.1` by default (`--bind` / `$CLAUDECK_BIND`), with a `Host` header check (DNS-rebinding guard: `localhost`/`127.0.0.1` plus `--allowed-host` / `$CLAUDECK_ALLOWED_HOSTS`). A non-loopback bind requires a token (`--token` / `$CLAUDECK_TOKEN`, else random) and prints ready-to-open URLs, no browser: `/?token=` sets an HttpOnly cookie, or `Authorization: Bearer`. In that mode, without `--allowed-host`, any `Host` is accepted (`ALLOWED_HOSTS = None`): the token is the guard. Three routes:
 - `/` → serves `claudeck.html` (sibling file resolved via `__file__`, so it works through the `~/.local/bin` symlink).
 - `/api/sessions` → `{home, sessions}`: metadata for each `*.jsonl` whose name is a UUID. `scan_file` reads the whole file; results are cached in memory per path and invalidated on `mtime`. Sessions with no real user prompt are excluded.
 - `/api/session/<uuid>` → simplified transcript `[{role, text, ts}]` (text clipped by `_clip` to `MAX_MSG_CHARS` with a `[… N more characters not shown]` line the page styles), assistant tool calls summarized as `→ Tool hint` lines.
@@ -51,10 +51,10 @@ Claude Code JSONL filtering rules (shared by `scan_file` and `transcript`): skip
 - Persisted preferences: `localStorage["ccs-tools"]` and `localStorage["ccs-theme"]` (prefix from the project's former name, cc-sessions-web; kept so existing preferences survive).
 - Shortcuts: `/` focuses search, `Esc` clears it, `Enter` / `Shift+Enter` cycle matches.
 
-**`config/` + `scripts/`** — systemd user unit (`--no-browser`, port via `EnvironmentFile` `~/.config/claudeck/env`) and install/uninstall scripts.
+**`config/` + `scripts/`** — systemd user unit (`--no-browser`; port and remote-access settings via `EnvironmentFile` `~/.config/claudeck/env`) and install/uninstall scripts.
 
 ## Constraints to preserve
 
 - Stay read-only on `~/.claude/projects` and dependency-free (no pip, no CDN).
-- Default stays `127.0.0.1` with no token. Any non-loopback bind must keep the token mandatory, and `_host_ok` must only accept `localhost` plus explicit `--allowed-host` names: transcripts contain sensitive data.
+- Default stays `127.0.0.1` with no token. Any non-loopback bind must keep the token mandatory, and `_host_ok` must only accept `localhost` plus explicit `--allowed-host` names (any `Host` only when exposed with a token and no allowlist): transcripts contain sensitive data.
 - Port must stay within 1024–65535 (`port_arg`).
