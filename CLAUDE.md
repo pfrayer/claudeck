@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Read-only local web view of Claude Code sessions (`~/.claude/projects/*/*.jsonl`), grouped as a tree by working directory (`cwd`). Zero dependencies: Python 3 stdlib on the server, vanilla HTML/CSS/JS in a single file on the client. No build, no tests, no linter configured. Everything (code, comments, UI, docs) is in English.
+Read-only local web view of Claude Code sessions (`~/.claude/projects/*/*.jsonl`, or `$CLAUDE_CONFIG_DIR/projects` when set, like Claude Code), grouped as a tree by working directory (`cwd`). Zero dependencies: Python 3 stdlib on the server, vanilla HTML/CSS/JS in a single file on the client. No build, no tests, no linter configured. Everything (code, comments, UI, docs) is in English.
 
 ## Commands
 
@@ -50,6 +50,7 @@ Claude Code JSONL filtering rules (shared by `scan_file` and `transcript`): skip
 - The session pane offers the resume command `cd <cwd> && claude --resume <id>`.
 - Dates are formatted with the `LOCALE` constant (`en-US`).
 - Dark by default (the OS preference is deliberately ignored); the header button switches to a warm beige light theme via `data-theme="light"` on `<html>`, persisted in `localStorage["ccs-theme"]` and applied by a tiny `<head>` script before paint. Colours are `:root` tokens, including the `--hl-*` lightness values used by the per-folder hue tints. Never hardcode an `oklch()` lightness in a rule; add a token with both variants.
+- Counts use `pl(n, word)` for singular/plural.
 - Persisted preferences: `localStorage["ccs-tools"]` and `localStorage["ccs-theme"]` (prefix from the project's former name, cc-sessions-web; kept so existing preferences survive).
 - Shortcuts: `/` focuses search, `Esc` clears it, `Enter` / `Shift+Enter` cycle matches.
 
@@ -60,3 +61,7 @@ Claude Code JSONL filtering rules (shared by `scan_file` and `transcript`): skip
 - Stay read-only on `~/.claude/projects` and dependency-free (no pip, no CDN).
 - Default stays `127.0.0.1` with no token. Any non-loopback bind must keep the token mandatory, and `_host_ok` must only accept `localhost` plus explicit `--allowed-host` names (any `Host` only when exposed with a token and no allowlist): transcripts contain sensitive data.
 - Port must stay within 1024–65535 (`port_arg`).
+
+## Screenshots
+
+`docs/screenshots/*.png` show fictional sessions only, never real ones: generate fake data in a throwaway `CLAUDE_CONFIG_DIR`, run `HOME=/home/<fake> CLAUDE_CONFIG_DIR=<dir> ./src/claudeck --no-browser`, and capture with a headless browser at 1440×900, scale 2. Check the served JSON and the PNGs for real paths or names before committing.

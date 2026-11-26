@@ -222,6 +222,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const icon=(id,n=13)=>`<svg width="${n}" height="${n}"><use href="#i-${id}"/></svg>`;
 const short=p=>p.startsWith(HOME)?"~"+p.slice(HOME.length):p;
+const pl=(n,w)=>n===1?w:w+"s";// "1 session" / "2 sessions"
 const title=s=>s.title||s.first||"(untitled)";
 const ago=t=>{const s=Date.now()/1000-t;if(s<90)return"just now";if(s<3600)return`${Math.round(s/60)} min ago`;if(s<86400)return`${Math.round(s/3600)} h ago`;if(s<86400*7)return`${Math.round(s/86400)} d ago`;return new Date(t*1000).toLocaleDateString(LOCALE,{day:"numeric",month:"short"})};
 let tt;const toast=m=>{const e=$("#toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),2000)};
@@ -258,7 +259,7 @@ function renderTree(){
   const q=$("#q").value.toLowerCase().trim(),list=DATA.filter(s=>matches(s,q));
   ROOT=buildTree(list);
   const max=Math.max(1,...[...ROOT.kids.values()].map(k=>k.total));
-  $("#totals").innerHTML=`<span><b>${list.length}</b>sessions</span><span><b>${new Set(list.map(s=>s.cwd)).size}</b>folders</span>`;
+  const nf=new Set(list.map(s=>s.cwd)).size;$("#totals").innerHTML=`<span><b>${list.length}</b>${pl(list.length,"session")}</span><span><b>${nf}</b>${pl(nf,"folder")}</span>`;
   const rows=[];
   const walk=(n,guides)=>{const kids=[...n.kids.values()].sort((a,b)=>b.last-a.last);
     kids.forEach((k,i)=>{const lastKid=i===kids.length-1,hasKids=k.kids.size>0,isOpen=q||open.has(k.path);
@@ -326,7 +327,7 @@ async function showSession(sid){
     <span class="hue"${hueAttr(s.cwd)}>${icon("folder",13)}<code>${esc(short(s.cwd))}</code></span>
     ${s.branch&&s.branch!=="HEAD"?`<span>${icon("branch",13)}${esc(s.branch)}</span>`:""}
     <span>${icon("clock",13)}${s.start?new Date(s.start).toLocaleString(LOCALE,{dateStyle:"medium",timeStyle:"short"}):""}</span>
-    <span>${icon("msg",13)}${s.user} messages</span>
+    <span>${icon("msg",13)}${s.user} ${pl(s.user,"message")}</span>
     <span class="vtools"><span class="finder" id="finder" hidden><span id="fcount"></span><button class="up" id="fprev" title="Previous match (Shift+Enter)">${icon("chev",12)}</button><button class="dn" id="fnext" title="Next match (Enter)">${icon("chev",12)}</button></span>
     <button class="copy" id="tt" aria-pressed="${TOOLS_OPEN}">${icon("chev",12)}${TOOLS_OPEN?"Collapse":"Expand"} tools</button>
     <button class="copy" id="cp" title="${esc(cmd)}">${icon("copy",13)}Copy resume command</button></span></div></div>
@@ -375,7 +376,7 @@ async function load(){try{const r=await fetch("/api/sessions"),j=await r.json();
     renderTree();if(hs&&DATA.some(s=>s.id===hs))showSession(hs);return}
   await search();renderTree()}catch{ $("#treeBody").innerHTML=`<div class="empty"><p>Server unreachable. Restart claudeck.</p></div>`}}
 const EMPTY_VIEW=$("#view").innerHTML;
-$("#reload").onclick=async()=>{const b=$("#reload");b.disabled=true;b.classList.add("busy");await load();b.disabled=false;b.classList.remove("busy");toast(`Tree reloaded · ${DATA.length} sessions`)};
+$("#reload").onclick=async()=>{const b=$("#reload");b.disabled=true;b.classList.add("busy");await load();b.disabled=false;b.classList.remove("busy");toast(`Tree reloaded · ${DATA.length} ${pl(DATA.length,"session")}`)};
 $("#reset").onclick=()=>{$("#q").value="";curPath=null;curSid=null;open=new Set();ROOT=null;$("#view").innerHTML=EMPTY_VIEW;THREAD="";MARKS=[];history.replaceState(null,"",location.pathname);load()};
 function renderThemeBtn(){const l=document.documentElement.dataset.theme==="light",b=$("#theme");
   b.innerHTML=`${icon(l?"moon":"sun",13)}${l?"Dark":"Light"}`;b.title=`Switch to ${l?"dark":"light"} theme`}

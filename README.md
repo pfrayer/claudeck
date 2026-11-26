@@ -9,6 +9,8 @@ A read-only web view of your [Claude Code](https://code.claude.com/docs) session
 - Read transcripts with tool calls folded away
 - Copy the `claude --resume` command for any session
 
+![Sessions grouped by folder, with a transcript open](docs/screenshots/overview.png)
+
 It only reads `~/.claude/projects` and never writes to it. It is one Python script and one HTML page, with no dependencies to install.
 
 ## Quick start
@@ -20,7 +22,7 @@ git clone https://github.com/pfrayer/claudeck.git
 ./claudeck/src/claudeck
 ```
 
-Your browser opens http://localhost:8765/. Stop it with `Ctrl+C`. Use `--port 9000` to pick another port, and `--no-browser` to skip opening a tab.
+Your browser opens http://localhost:8765/. Stop it with `Ctrl+C`. Use `--port 9000` to pick another port, and `--no-browser` to skip opening a tab. If you moved your Claude Code folder with `CLAUDE_CONFIG_DIR`, claudeck follows it.
 
 ## Search
 
@@ -32,6 +34,8 @@ Type words to find the sessions that contain all of them, in any order. Put `"qu
 | `"root path" uvicorn` | the phrase `root path`, and `uvicorn` |
 
 Search covers everything you see in a transcript, plus folder names, titles and branches. Matches are highlighted in the open session.
+
+![Search for "tests": matching sessions, and hits highlighted in the transcript](docs/screenshots/search.png)
 
 | Key | Action |
 | --- | --- |
