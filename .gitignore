@@ -1,4 +1,4 @@
 __pycache__/
 *.pyc
 .playwright-mcp/
-.impeccable/hook.cache.json
+.impeccable/
