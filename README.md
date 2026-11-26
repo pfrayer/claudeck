@@ -9,7 +9,13 @@ A read-only web view of your [Claude Code](https://code.claude.com/docs) session
 - Read transcripts with tool calls folded away
 - Copy the `claude --resume` command for any session
 
-[![Sessions grouped by folder, with a transcript open](docs/screenshots/overview.png)](docs/screenshots/overview.png?raw=true)
+[![Claudeck: search bar, folder tree, session list, transcript and resume button, numbered 1 to 5](docs/screenshots/overview.png)](docs/screenshots/overview.png?raw=true)
+
+1. **Search** every conversation, yours and Claude's.
+2. **Folders** where you ran Claude Code, with session counts. A dot marks one still running.
+3. **Sessions** in the selected folder, newest first.
+4. **Transcript**, with tool calls and subagents folded.
+5. **Copy the resume command** to pick the session up in your terminal.
 
 It only reads `~/.claude/projects` and never writes to it. It is one Python script and one HTML page, with no dependencies to install.
 
