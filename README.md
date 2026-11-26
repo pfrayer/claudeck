@@ -9,7 +9,7 @@ A read-only web view of your [Claude Code](https://code.claude.com/docs) session
 - Read transcripts with tool calls folded away
 - Copy the `claude --resume` command for any session
 
-![Sessions grouped by folder, with a transcript open](docs/screenshots/overview.png)
+[![Sessions grouped by folder, with a transcript open](docs/screenshots/overview.png)](docs/screenshots/overview.png?raw=true)
 
 It only reads `~/.claude/projects` and never writes to it. It is one Python script and one HTML page, with no dependencies to install.
 
@@ -35,7 +35,7 @@ Type words to find the sessions that contain all of them, in any order. Put `"qu
 
 Search covers everything you see in a transcript, plus folder names, titles and branches. Matches are highlighted in the open session.
 
-![Search for "tests": matching sessions, and hits highlighted in the transcript](docs/screenshots/search.png)
+[![Search for "tests": matching sessions, and hits highlighted in the transcript](docs/screenshots/search.png)](docs/screenshots/search.png?raw=true)
 
 | Key | Action |
 | --- | --- |
