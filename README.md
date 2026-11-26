@@ -108,6 +108,7 @@ Good to know:
 - Every request needs the token, even from `localhost`. To create one, run `python3 -c "import secrets; print(secrets.token_urlsafe(24))"`.
 - With the service, put `CLAUDECK_BIND` and `CLAUDECK_TOKEN` in `~/.config/claudeck/env`, and run `chmod 600` on that file.
 - The proxy must serve claudeck at the root of a host. A sub-path like `/claudeck/` does not work.
+- The first `/?token=…` visit puts the token in a URL, so a proxy may write it to its access logs. If other people can read those logs, change the token afterwards.
 
 ## Privacy
 
