@@ -2,115 +2,115 @@
 
 *Your Claude Code sessions, as a deck you can flip through.*
 
-A read-only web view of your [Claude Code](https://docs.claude.com/en/docs/claude-code) sessions, organized as a tree of the folders you worked in.
+A read-only web view of your [Claude Code](https://code.claude.com/docs) sessions, organized as a tree of the folders you worked in.
 
-- Browse sessions by folder, most recently active first, with a live indicator on sessions still running
-- Search whole conversations (your messages and slash commands, Claude's replies, tool calls, subagent runs, compaction summaries) plus folder paths, titles and branches, with highlighted matches in the transcript
+- Find where you talked about something, in your messages or in Claude's replies
+- Browse sessions by folder, most recent first, and see which ones are still running
 - Read transcripts with tool calls folded away
 - Copy the `claude --resume` command for any session
 
-It only reads `~/.claude/projects` and never writes to it. No dependencies: a single Python 3 script and a single HTML page, nothing to `pip install`, no CDN.
-
-## Requirements
-
-- Python 3.9 or newer, available as `python3`
-- Linux or macOS
-- Claude Code sessions in `~/.claude/projects`
+It only reads `~/.claude/projects` and never writes to it. It is one Python script and one HTML page, with no dependencies to install.
 
 ## Quick start
+
+You need Python 3.9 or newer, on Linux or macOS.
 
 ```bash
 git clone https://github.com/pfrayer/claudeck.git
 ./claudeck/src/claudeck
 ```
 
-Your browser opens http://localhost:8765/. Stop it with `Ctrl+C`.
-
-Options:
-
-| Flag | Variable | Default | Effect |
-| --- | --- | --- | --- |
-| `--port N` | `CLAUDECK_PORT` | `8765` | HTTP port (1024–65535) |
-| `--no-browser` | | | Do not open a browser tab |
-| `--bind ADDR` | `CLAUDECK_BIND` | `127.0.0.1` | Listen address, see [Remote access](#remote-access) |
-| `--token T` | `CLAUDECK_TOKEN` | random | Access token when not on loopback |
-| `--allowed-host H[,H]` | `CLAUDECK_ALLOWED_HOSTS` | any | Accepted `Host` names when not on loopback |
-
-### Keep your history
-
-By default, Claude Code deletes transcripts not touched for 30 days, and claudeck can only show what is still on disk. To keep them longer, set `cleanupPeriodDays` in `~/.claude/settings.json`:
-
-```json
-{
-  "cleanupPeriodDays": 3650
-}
-```
-
-## Install
-
-```bash
-./scripts/install.sh
-```
-
-- Links `~/.local/bin/claudeck`, so `claudeck` runs from anywhere (make sure `~/.local/bin` is in your `PATH`).
-- On Linux with systemd, also installs and starts a user service, so the page is always up at http://localhost:8765/. Settings live in `~/.config/claudeck/env`; after editing it, run `systemctl --user restart claudeck`.
-- Elsewhere (macOS…), no service is installed: run `claudeck` when you need it.
-
-To remove it: `./scripts/uninstall.sh` (keeps `~/.config/claudeck/env`).
-
-## Remote access
-
-By default claudeck only listens on `127.0.0.1`. To reach it on a remote machine, for example a dev server behind a reverse proxy, listen on all interfaces:
-
-```bash
-claudeck --bind 0.0.0.0 --port 8765
-```
-
-Nothing to answer or confirm: a random token is generated, no browser is launched, and the URLs to open are printed:
-
-```
-claudeck listening on 0.0.0.0:8765 (token required, Ctrl+C to stop)
-Open one of (the token is then kept in a cookie):
-  http://devserver.example.com:8765/?token=0S78rxSEUeECZOLknAFsK2LE_7pmiTjg
-  http://10.0.0.12:8765/?token=0S78rxSEUeECZOLknAFsK2LE_7pmiTjg
-  http://localhost:8765/?token=0S78rxSEUeECZOLknAFsK2LE_7pmiTjg
-Token generated for this run; set $CLAUDECK_TOKEN to keep it across restarts.
-```
-
-Open one of them, or the same `/?token=…` path on your proxy's address, once. It sets an `HttpOnly` cookie (`Secure` when the proxy sends `X-Forwarded-Proto: https`) and redirects to `/`, so the token leaves the address bar. Scripts send a header instead:
-
-```bash
-curl -H "Authorization: Bearer $CLAUDECK_TOKEN" https://devserver.example.com/api/sessions
-```
-
-Good to know:
-
-- Once bound outside loopback, every request needs the token, including from `localhost`.
-- Without `--allowed-host`, any `Host` header is accepted and the token is the only guard. With it, only those names (plus `localhost`) are.
-- A token must be at least 16 characters of `[A-Za-z0-9_-]`. Generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(24))"`.
-- The proxy must serve claudeck at the root of a host (the page calls `/api/...`); a sub-path such as `/claudeck/` does not work.
-- With the systemd service, put `CLAUDECK_BIND` and a fixed `CLAUDECK_TOKEN` in `~/.config/claudeck/env`, `chmod 600` it, and restart. Otherwise the token changes on each restart (`journalctl --user -u claudeck` shows it).
-
-## Privacy
-
-Transcripts can contain anything Claude read or printed: code, file contents, command output, secrets. claudeck keeps everything on your machine and sends nothing anywhere. If you expose it, anyone with the token can read every transcript: keep the token private, and rotate it by changing `CLAUDECK_TOKEN` and restarting.
+Your browser opens http://localhost:8765/. Stop it with `Ctrl+C`. Use `--port 9000` to pick another port, and `--no-browser` to skip opening a tab.
 
 ## Search
 
-Type words to find the sessions that contain all of them, in any order, anywhere in the conversation, folder path, title or branch. Put `"quotes"` around words that must appear together as an exact phrase. Search ignores case, and every hit is highlighted in the open transcript.
+Type words to find the sessions that contain all of them, in any order. Put `"quotes"` around an exact phrase. Case is ignored.
 
 | Query | Finds sessions containing |
 | --- | --- |
 | `uvicorn root` | both `uvicorn` and `root`, anywhere |
 | `"root path" uvicorn` | the phrase `root path`, and `uvicorn` |
 
-## Keyboard
+Search covers everything you see in a transcript, plus folder names, titles and branches. Matches are highlighted in the open session.
 
 | Key | Action |
 | --- | --- |
 | `/` | Focus search |
 | `Esc` | Clear search |
-| `Enter` / `Shift+Enter` | Next / previous match in the open transcript |
+| `Enter` / `Shift+Enter` | Next / previous match |
+
+## Run it as a service (Linux, systemd)
+
+To keep claudeck always running at http://localhost:8765/, install it as a systemd user service. Here is the unit, [`config/claudeck.service`](config/claudeck.service):
+
+```ini
+[Service]
+Environment=CLAUDECK_PORT=8765
+EnvironmentFile=-%h/.config/claudeck/env
+ExecStart=%h/.local/bin/claudeck --no-browser
+Restart=on-failure
+```
+
+From the repository folder:
+
+```bash
+mkdir -p ~/.local/bin ~/.config/systemd/user ~/.config/claudeck
+ln -s "$PWD/src/claudeck" ~/.local/bin/claudeck
+cp config/claudeck.service ~/.config/systemd/user/
+cp config/env.example ~/.config/claudeck/env      # your settings
+systemctl --user daemon-reload
+systemctl --user enable --now claudeck
+```
+
+Settings go in `~/.config/claudeck/env`. Restart with `systemctl --user restart claudeck` after changing them, and read the logs with `journalctl --user -u claudeck`.
+
+[`scripts/install.sh`](scripts/install.sh) does the same steps for you. On macOS, it only adds the `claudeck` command. [`scripts/uninstall.sh`](scripts/uninstall.sh) removes the service and the command, and keeps your settings.
+
+## Update
+
+```bash
+git pull
+systemctl --user restart claudeck   # if you run it as a service
+```
+
+## Remote access
+
+By default claudeck only listens on `127.0.0.1`. To open it from another machine, for example a dev server behind a reverse proxy, listen on all interfaces:
+
+```bash
+claudeck --bind 0.0.0.0
+```
+
+claudeck then generates a random token and prints the links to open:
+
+```
+claudeck listening on 0.0.0.0:8765 (token required, Ctrl+C to stop)
+Open one of (the token is then kept in a cookie):
+  http://devserver.example.com:8765/?token=0S78rxSEUeECZOLknAFsK2LE_7pmiTjg
+```
+
+Open one once, or the same `/?token=…` path on your proxy's address. The browser keeps the token in a cookie, so later visits need nothing. Scripts can send `Authorization: Bearer <token>` instead.
+
+| Flag | Variable | Default | Effect |
+| --- | --- | --- | --- |
+| `--bind ADDR` | `CLAUDECK_BIND` | `127.0.0.1` | Address to listen on |
+| `--token T` | `CLAUDECK_TOKEN` | random at each start | Fixed token, at least 16 characters of `[A-Za-z0-9_-]` |
+| `--allowed-host H[,H]` | `CLAUDECK_ALLOWED_HOSTS` | any | Only accept these host names (and `localhost`) |
+| `--port N` | `CLAUDECK_PORT` | `8765` | Port, 1024 to 65535 |
+
+Good to know:
+
+- Every request needs the token, even from `localhost`. To create one, run `python3 -c "import secrets; print(secrets.token_urlsafe(24))"`.
+- With the service, put `CLAUDECK_BIND` and `CLAUDECK_TOKEN` in `~/.config/claudeck/env`, and run `chmod 600` on that file.
+- The proxy must serve claudeck at the root of a host. A sub-path like `/claudeck/` does not work.
+
+## Privacy
+
+Transcripts can contain anything Claude read or printed, secrets included. claudeck keeps them on your machine and sends nothing anywhere. If you expose it, treat the token like a password.
+
+## Tip: keep older sessions
+
+Claude Code deletes sessions after 30 days without activity, so claudeck can no longer show them. To keep them longer, set [`cleanupPeriodDays`](https://code.claude.com/docs/en/settings) in `~/.claude/settings.json`, for example to `3650`.
 
 ## License
 
