@@ -4,11 +4,6 @@
 
 A read-only web view of your [Claude Code](https://code.claude.com/docs) sessions, organized as a tree of the folders you worked in.
 
-- Find where you talked about something, in your messages or in Claude's replies
-- Browse sessions by folder, most recent first, and see which ones are still running
-- Read transcripts with tool calls folded away
-- Copy the `claude --resume` command for any session
-
 [![Claudeck: search bar, folder tree, session list, transcript and resume button, numbered 1 to 5](docs/screenshots/overview.png)](docs/screenshots/overview.png?raw=true)
 
 1. **Search** every conversation, yours and Claude's.
