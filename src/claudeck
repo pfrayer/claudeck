@@ -18,6 +18,7 @@ import re
 import secrets
 import socket
 import threading
+import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -26,7 +27,7 @@ PROJECTS = Path.home() / ".claude" / "projects"
 HOME = str(Path.home())
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
-_cache: dict[str, tuple[float, dict]] = {}  # path -> (mtime, meta)
+_cache: dict[str, tuple[float, dict, str]] = {}  # path -> (mtime, meta, lowercased searchable text)
 _lock = threading.Lock()
 
 
@@ -52,6 +53,19 @@ def _is_noise(text):
     return not t or t.startswith(("<command-", "<local-command", "<system-reminder", "Caveat:"))
 
 
+_CMD_RE = re.compile(r"<command-name>(.*?)</command-name>.*?<command-args>(.*?)</command-args>", re.S)
+
+
+def _command(text):
+    """A slash command typed with arguments becomes "/name args"; anything else is returned as is
+    (a bare command stays <command-…> markup, i.e. noise)."""
+    if text.lstrip().startswith("<command-"):
+        m = _CMD_RE.search(text)
+        if m and m[2].strip():
+            return f"{m[1].strip()} {m[2].strip()}"
+    return text
+
+
 def _iter_lines(path):
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
@@ -61,15 +75,47 @@ def _iter_lines(path):
                 continue
 
 
+def _subagent_files(path):
+    """Subagent transcripts of a session: <project>/<session-id>/subagents/agent-*.jsonl."""
+    d = path.with_suffix("") / "subagents"
+    return sorted(d.glob("agent-*.jsonl")) if d.is_dir() else []
+
+
+def _subagent_msg(f):
+    """One subagent run as a single {role: "agent", label, text, ts} message (prompt + replies)."""
+    try:
+        info = json.loads(f.with_suffix(".meta.json").read_text())
+    except (OSError, ValueError):
+        info = {}
+    parts, ts = [], None
+    for d in _iter_lines(f):
+        t = d.get("type")
+        if t not in ("user", "assistant") or d.get("isMeta"):
+            continue
+        text = _text_of((d.get("message") or {}).get("content"), with_tools=(t == "assistant"))
+        if _is_noise(text):
+            continue
+        ts = ts or d.get("timestamp")
+        parts.append(text)
+    if not parts:
+        return None
+    label = " · ".join(str(x) for x in (info.get("agentType"), info.get("description")) if x) or "subagent"
+    return {"role": "agent", "label": label, "text": "\n\n".join(parts), "ts": ts}
+
+
 def scan_file(path: Path):
+    """Return (meta, text): text is what transcript() shows, unclipped and lowercased, for search."""
     meta = {"id": path.stem, "cwd": None, "title": None, "first": None,
-            "branch": None, "prompts": "", "user": 0, "assistant": 0, "start": None, "end": None}
+            "branch": None, "user": 0, "assistant": 0, "start": None, "end": None}
+    texts = []
     for d in _iter_lines(path):
         t = d.get("type")
         if t == "ai-title" and d.get("aiTitle"):
             meta["title"] = d["aiTitle"]
         elif t == "summary" and d.get("summary") and not meta["title"]:
             meta["title"] = d["summary"]
+        elif t == "continued-in" and d.get("continuedInSessionId"):
+            meta["continuedIn"] = d["continuedInSessionId"]
         if t not in ("user", "assistant") or d.get("isSidechain"):
             continue
         meta["cwd"] = meta["cwd"] or d.get("cwd")
@@ -79,53 +125,95 @@ def scan_file(path: Path):
             meta["start"] = meta["start"] or ts
             meta["end"] = ts
         if t == "user":
-            text = _text_of((d.get("message") or {}).get("content"))
+            text = _command(_text_of((d.get("message") or {}).get("content")))
             if d.get("isMeta") or _is_noise(text):
+                continue
+            if d.get("isCompactSummary"):
+                texts.append(text)  # searchable, but not a prompt of yours
                 continue
             meta["user"] += 1
             if not meta["first"]:
                 meta["first"] = text.strip()[:200]
-            if len(meta["prompts"]) < 4000:
-                meta["prompts"] += " " + text.strip()[:1000]
+            texts.append(text)
         else:
             meta["assistant"] += 1
-    return meta
+            if not d.get("isMeta"):
+                text = _text_of((d.get("message") or {}).get("content"), with_tools=True)
+                if not _is_noise(text):
+                    texts.append(text)
+    for f in _subagent_files(path):
+        m = _subagent_msg(f)
+        if m:
+            texts += [m["label"], m["text"]]
+    return meta, "\n".join(texts).lower()
 
 
-def all_sessions():
+def _entries():
+    """(meta, text) for every non-empty session, rescanning files whose mtime changed."""
     out = []
     for path in PROJECTS.glob("*/*.jsonl"):
         if not UUID_RE.match(path.stem):
             continue
         try:
             st = path.stat()
+            # subagents write their own files: their mtimes invalidate the cache too
+            mtime = max([st.st_mtime] + [f.stat().st_mtime for f in _subagent_files(path)])
         except OSError:
             continue
         with _lock:
             hit = _cache.get(str(path))
-        if hit and hit[0] == st.st_mtime:
-            meta = hit[1]
+        if hit and hit[0] == mtime:
+            meta, text = hit[1], hit[2]
         else:
-            meta = scan_file(path)
+            meta, text = scan_file(path)
             meta["size"] = st.st_size
-            meta["mtime"] = st.st_mtime
+            meta["mtime"] = mtime
             with _lock:
-                _cache[str(path)] = (st.st_mtime, meta)
+                _cache[str(path)] = (mtime, meta, text)
         if meta["user"] == 0:
             continue  # empty session (started then quit)
         if not meta["cwd"]:
             meta["cwd"] = "?" + path.parent.name
-        out.append(meta)
-    out.sort(key=lambda m: m["mtime"], reverse=True)
+        out.append((meta, text))
+    # A session continued in another one is copied there whole: list only the continuation.
+    ids = {m["id"] for m, _ in out}
+    out = [e for e in out if e[0].get("continuedIn") not in ids]
+    out.sort(key=lambda e: e[0]["mtime"], reverse=True)
+    return out
+
+
+def all_sessions():
+    return [meta for meta, _ in _entries()]
+
+
+MAX_QUERY_CHARS = 200
+
+
+def terms_of(q):
+    """Search terms: words, or "quoted phrases" kept whole; lowercased. Mirrors terms() in the page."""
+    q = q.lower()[:MAX_QUERY_CHARS]
+    return [t for t in (a or b.strip('"') for a, b in re.findall(r'"([^"]+)"|(\S+)', q)) if t]
+
+
+def search(terms):
+    """Ids of the sessions containing every term (in its transcript, folder, title or branch)."""
+    if not terms:
+        return []
+    out = []
+    for meta, text in _entries():
+        hay = text + "\n" + " ".join(str(meta.get(k) or "") for k in ("cwd", "title", "branch")).lower()
+        if all(t in hay for t in terms):
+            out.append(meta["id"])
     return out
 
 
 MAX_MSG_CHARS = 4000
 
 
-def _clip(text):
-    """Truncate a message, closing an open code fence and saying how much was cut."""
-    if len(text) <= MAX_MSG_CHARS:
+def _clip(text, terms=()):
+    """Truncate a message, closing an open code fence and saying how much was cut.
+    A message containing a search term is kept whole, so every hit can be highlighted."""
+    if len(text) <= MAX_MSG_CHARS or any(t in text.lower() for t in terms):
         return text
     head = text[:MAX_MSG_CHARS]
     if head.count("```") % 2:
@@ -133,7 +221,7 @@ def _clip(text):
     return f"{head}\n\n[… {len(text) - MAX_MSG_CHARS:,} more characters not shown]"
 
 
-def transcript(sid):
+def transcript(sid, terms=()):
     paths = list(PROJECTS.glob(f"*/{sid}.jsonl"))
     if not paths:
         return None
@@ -143,9 +231,18 @@ def transcript(sid):
         if t not in ("user", "assistant") or d.get("isSidechain") or d.get("isMeta"):
             continue
         text = _text_of((d.get("message") or {}).get("content"), with_tools=(t == "assistant"))
+        if t == "user":
+            text = _command(text)
         if _is_noise(text):
             continue
-        msgs.append({"role": t, "text": _clip(text), "ts": d.get("timestamp")})
+        role = "summary" if d.get("isCompactSummary") else t
+        msgs.append({"role": role, "text": _clip(text, terms), "ts": d.get("timestamp")})
+    for f in _subagent_files(paths[0]):
+        m = _subagent_msg(f)
+        if m:
+            m["text"] = _clip(m["text"], terms)
+            msgs.append(m)
+    msgs.sort(key=lambda m: m["ts"] or "")  # stable: places each subagent run where it started
     return msgs
 
 
@@ -207,11 +304,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(401, {"error": "token required: open /?token=<TOKEN>"})
         if p == "/":
             return self._send(200, PAGE_FILE.read_bytes(), "text/html")
+        params = urllib.parse.parse_qs(query)
+        terms = terms_of((params.get("q") or [""])[0])
         if p == "/api/sessions":
             return self._send(200, {"home": HOME, "sessions": all_sessions()})
+        if p == "/api/search":
+            return self._send(200, search(terms))
         m = re.match(r"^/api/session/([0-9a-f-]{36})$", p)
         if m and UUID_RE.match(m[1]):
-            msgs = transcript(m[1])
+            msgs = transcript(m[1], terms)
             return self._send(200, msgs) if msgs is not None else self._send(404, {"error": "not found"})
         self._send(404, {"error": "not found"})
 

@@ -144,11 +144,12 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(300px,400px) 
 .body pre code{background:none;padding:0;color:inherit}
 .body p.trunc{color:var(--faint);font-size:12.5px;font-style:italic}
 .tools{margin:6px 0}.toolist{display:flex;flex-direction:column;gap:3px;margin-top:4px}
-.tools>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font:12px var(--mono);color:var(--muted);padding:3px 9px;border:1px dashed var(--line);border-radius:6px}
-.tools>summary::-webkit-details-marker{display:none}
-.tools>summary{max-width:100%}.tools>summary .sl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tools>summary:hover{color:var(--accent-ink);border-color:var(--accent)}
-.tools>summary svg{transition:transform .15s ease-out}.tools[open]>summary svg{transform:rotate(90deg)}
+:is(.tools,.fold)>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font:12px var(--mono);color:var(--muted);padding:3px 9px;border:1px dashed var(--line);border-radius:6px}
+:is(.tools,.fold)>summary::-webkit-details-marker{display:none}
+:is(.tools,.fold)>summary{max-width:100%}:is(.tools,.fold)>summary .sl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:is(.tools,.fold)>summary:hover{color:var(--accent-ink);border-color:var(--accent)}
+:is(.tools,.fold)>summary svg{transition:transform .15s ease-out}:is(.tools,.fold)[open]>summary svg{transform:rotate(90deg)}
+.fold>.card{margin-top:6px}.turn.side .av{background:var(--panel);color:var(--muted);border:1px dashed var(--line)}
 mark{background:oklch(0.80 0.15 85/.30);color:inherit;border-radius:3px;padding:0 1px}
 mark.cur{background:oklch(0.82 0.16 85);color:oklch(0.22 0.03 85);box-shadow:0 0 0 2px oklch(0.82 0.16 85/.35)}
 .vtools{display:flex;gap:6px;margin-left:auto;align-items:center}
@@ -204,7 +205,7 @@ mark.cur{background:oklch(0.82 0.16 85);color:oklch(0.22 0.03 85);box-shadow:0 0
 </svg>
 <header>
   <div class="brand"><svg width="20" height="20"><use href="#i-stack"/></svg><span>Claudeck</span></div>
-  <label class="search"><svg width="15" height="15"><use href="#i-search"/></svg><input id="q" placeholder="Search a folder, a title, a word from your prompts…" autocomplete="off"><kbd>/</kbd></label>
+  <label class="search"><svg width="15" height="15"><use href="#i-search"/></svg><input id="q" placeholder="Search conversations: all words, or &quot;an exact phrase&quot;…" autocomplete="off"><kbd>/</kbd></label>
   <div class="totals" id="totals"></div>
   <div class="actions"><button class="act" id="theme"></button><button class="act" id="reload" title="Re-read sessions from disk (keeps the selection)"><svg width="13" height="13"><use href="#i-reload"/></svg>Reload</button><button class="act" id="reset" title="Clear search and selection, collapse the tree"><svg width="13" height="13"><use href="#i-reset"/></svg>Reset</button></div>
 </header>
@@ -225,7 +226,12 @@ const title=s=>s.title||s.first||"(untitled)";
 const ago=t=>{const s=Date.now()/1000-t;if(s<90)return"just now";if(s<3600)return`${Math.round(s/60)} min ago`;if(s<86400)return`${Math.round(s/3600)} h ago`;if(s<86400*7)return`${Math.round(s/86400)} d ago`;return new Date(t*1000).toLocaleDateString(LOCALE,{day:"numeric",month:"short"})};
 let tt;const toast=m=>{const e=$("#toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),2000)};
 
-function matches(s,q){return !q||(s.cwd+" "+title(s)+" "+(s.prompts||"")+" "+(s.branch||"")).toLowerCase().includes(q)}
+let HITS=new Set(),HQ="";// full-text hits from /api/search, valid for query HQ
+const terms=q=>(q.toLowerCase().match(/"[^"]+"|\S+/g)||[]).map(t=>t.replace(/^"|"$/g,"")).filter(Boolean);// words, or "exact phrases"; mirrors terms_of() on the server
+function matches(s,q){if(!q)return true;const h=(s.cwd+" "+title(s)+" "+(s.branch||"")).toLowerCase();return terms(q).every(t=>h.includes(t))||(HQ===q&&HITS.has(s.id))}
+async function search(){const q=$("#q").value.toLowerCase().trim();if(!q){HITS=new Set();HQ="";return}
+  const r=await fetch("/api/search?q="+encodeURIComponent(q)).catch(()=>null),ids=r&&r.ok?await r.json():null;
+  if(ids&&$("#q").value.toLowerCase().trim()===q){HITS=new Set(ids);HQ=q}}
 function buildTree(list){
   const root={name:"~",path:HOME,kids:new Map(),own:[],total:0};
   for(const s of list){
@@ -305,6 +311,8 @@ function merge(msgs){const out=[];for(const m of msgs){const p=out.at(-1);if(p&&
 function renderMsg(m){
   const when=m.ts?new Date(m.ts).toLocaleString(LOCALE,{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
   if(m.role==="user")return`<div class="turn user"><div class="av">Y</div><div class="bubble"><div class="who"><b>You</b>${when}</div><div class="body">${md(m.text)}</div></div></div>`;
+  if(m.role==="agent"||m.role==="summary"){const a=m.role==="agent";// subagent run / compacted context: folded
+    return`<div class="turn assistant side"><div class="av">${a?"A":"S"}</div><div class="bubble"><div class="who"><b>${a?"Subagent":"Context summary"}</b>${when}</div><details class="fold"><summary>${icon("chev",10)}<span class="sl">${esc(a?m.label:"Earlier conversation, compacted")}</span></summary><div class="card"><div class="body">${md(m.text)}</div></div></details></div></div>`}
   const segs=[];for(const l of m.text.split("\n")){const k=l.startsWith("→ ")?"tool":"text",p=segs.at(-1);if(p&&p.k===k)p.v.push(l);else segs.push({k,v:[l]})}
   const html=segs.map(g=>g.k==="tool"?`<details class="tools"${TOOLS_OPEN?" open":""}><summary>${icon("chev",10)}<span class="sl">${g.v.length} tool call${g.v.length>1?"s":""} · ${esc([...new Set(g.v.map(t=>t.split(" ")[1]))].join(", "))}</span></summary><div class="toolist">${g.v.map(t=>{const[,n,...r]=t.split(" ");return`<div class="tool"><b>${esc(n)}</b><span>${esc(r.join(" "))}</span></div>`}).join("")}</div></details>`:(g.v.join("\n").trim()?`<div class="body">${md(g.v.join("\n").trim())}</div>`:"")).join("");
   return`<div class="turn assistant"><div class="av">C</div><div class="bubble"><div class="who"><b>Claude</b>${when}</div><div class="card">${html}</div></div></div>`;
@@ -324,18 +332,22 @@ async function showSession(sid){
     <button class="copy" id="cp" title="${esc(cmd)}">${icon("copy",13)}Copy resume command</button></span></div></div>
     <div class="loading"></div><div class="scroll" id="threadBox"></div>`;
   $("#cp").onclick=()=>navigator.clipboard.writeText(cmd).then(()=>toast("Command copied"),()=>toast("Copy failed: "+cmd));
-  const r=await fetch("/api/session/"+sid).catch(()=>null);if(curSid!==sid)return;
+  await loadThread(sid);
+}
+async function loadThread(sid){const q=$("#q").value.trim(),v=$("#view");
+  const r=await fetch("/api/session/"+sid+(q?"?q="+encodeURIComponent(q):"")).catch(()=>null);if(curSid!==sid)return;
   v.querySelector(".loading")?.remove();
   const msgs=r&&r.ok?await r.json():null;
   THREAD=msgs&&msgs.length?`<div class="thread">${merge(msgs).map(renderMsg).join("")}</div>`:"";
   $("#threadBox").innerHTML=msgs===null?`<div class="empty"><p>Could not load this session.</p></div>`:msgs.length?THREAD:`<div class="empty"><p>Empty transcript.</p></div>`;
   highlight(true);
 }
-function highlight(jump){const box=$("#threadBox");if(!box||!THREAD)return;const q=$("#q").value.trim().toLowerCase();
+function highlight(jump){const box=$("#threadBox");if(!box||!THREAD)return;const q=$("#q").value.trim(),ts=terms(q);
   box.innerHTML=THREAD;MARKS=[];MI=-1;
-  if(q){const w=document.createTreeWalker(box,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);
-    for(const n of nodes){const t=n.nodeValue,lt=t.toLowerCase();let i=lt.indexOf(q);if(i<0)continue;const f=document.createDocumentFragment();let last=0;
-      while(i>=0){f.append(t.slice(last,i));const m=document.createElement("mark");m.textContent=t.slice(i,i+q.length);f.append(m);MARKS.push(m);last=i+q.length;i=lt.indexOf(q,last)}
+  if(ts.length){const re=new RegExp(ts.sort((a,b)=>b.length-a.length).map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|"),"gi");
+    const w=document.createTreeWalker(box,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+    for(const n of nodes){const t=n.nodeValue,hits=[...t.matchAll(re)];if(!hits.length)continue;const f=document.createDocumentFragment();let last=0;
+      for(const h of hits){f.append(t.slice(last,h.index));const m=document.createElement("mark");m.textContent=h[0];f.append(m);MARKS.push(m);last=h.index+h[0].length}
       f.append(t.slice(last));n.replaceWith(f)}}
   const fd=$("#finder");if(fd){fd.hidden=!q;$("#fcount").textContent=MARKS.length?"":"0 results"}
   if(MARKS.length&&jump)goMark(0);else if(MARKS.length)$("#fcount").textContent=`${MARKS.length} result${MARKS.length>1?"s":""}`}
@@ -351,17 +363,17 @@ $("#treeBody").onclick=e=>{const n=e.target.closest(".node");if(!n)return;const 
   if(e.target.closest("[data-tw]")||p===curPath){open.has(p)?open.delete(p):open.add(p)}else{curPath=p;open.add(p)}
   renderTree();syncHash()};
 $("#sessions").onclick=e=>{const it=e.target.closest(".sess");if(it)showSession(it.dataset.s)};
-let qt;$("#q").oninput=()=>{renderTree();syncHash();clearTimeout(qt);qt=setTimeout(()=>highlight(true),250)};
+let qt;$("#q").oninput=()=>{renderTree();syncHash();clearTimeout(qt);qt=setTimeout(async()=>{await search();renderTree();curSid?loadThread(curSid):highlight(true)},250)};
 $("#q").onkeydown=e=>{if(e.key==="Enter"&&MARKS.length){e.preventDefault();goMark(MI+(e.shiftKey?-1:1))}};
-addEventListener("keydown",e=>{if(e.key==="/"&&document.activeElement!==$("#q")){e.preventDefault();$("#q").focus()}if(e.key==="Escape"){$("#q").value="";renderTree();syncHash();highlight(false)}});
+addEventListener("keydown",e=>{if(e.key==="/"&&document.activeElement!==$("#q")){e.preventDefault();$("#q").focus()}if(e.key==="Escape"){$("#q").value="";renderTree();syncHash();curSid?loadThread(curSid):highlight(false)}});
 async function load(){try{const r=await fetch("/api/sessions"),j=await r.json();DATA=j.sessions;HOME=j.home;assignHues();
   const first=!ROOT,expand=c=>{let p=HOME;for(const part of c.slice(HOME.length).split("/").filter(Boolean)){p+="/"+part;open.add(p)}};
   if(first){for(const s of DATA.slice(0,8))expand(s.cwd);
     const h=new URLSearchParams(location.hash.slice(1)),hp=h.get("p"),hs=h.get("s");
-    if(h.get("q"))$("#q").value=h.get("q");
+    if(h.get("q")){$("#q").value=h.get("q");await search()}
     if(hp){curPath=hp.startsWith("~")?HOME+hp.slice(1):hp;expand(curPath)}
     renderTree();if(hs&&DATA.some(s=>s.id===hs))showSession(hs);return}
-  renderTree()}catch{ $("#treeBody").innerHTML=`<div class="empty"><p>Server unreachable. Restart claudeck.</p></div>`}}
+  await search();renderTree()}catch{ $("#treeBody").innerHTML=`<div class="empty"><p>Server unreachable. Restart claudeck.</p></div>`}}
 const EMPTY_VIEW=$("#view").innerHTML;
 $("#reload").onclick=async()=>{const b=$("#reload");b.disabled=true;b.classList.add("busy");await load();b.disabled=false;b.classList.remove("busy");toast(`Tree reloaded · ${DATA.length} sessions`)};
 $("#reset").onclick=()=>{$("#q").value="";curPath=null;curSid=null;open=new Set();ROOT=null;$("#view").innerHTML=EMPTY_VIEW;THREAD="";MARKS=[];history.replaceState(null,"",location.pathname);load()};

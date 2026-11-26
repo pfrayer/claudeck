@@ -5,7 +5,7 @@
 A read-only web view of your [Claude Code](https://docs.claude.com/en/docs/claude-code) sessions, organized as a tree of the folders you worked in.
 
 - Browse sessions by folder, most recently active first, with a live indicator on sessions still running
-- Search folder paths, titles, branches and your prompts, with highlighted matches in the transcript
+- Search whole conversations (your messages and slash commands, Claude's replies, tool calls, subagent runs, compaction summaries) plus folder paths, titles and branches, with highlighted matches in the transcript
 - Read transcripts with tool calls folded away
 - Copy the `claude --resume` command for any session
 
@@ -35,6 +35,16 @@ Options:
 | `--bind ADDR` | `CLAUDECK_BIND` | `127.0.0.1` | Listen address, see [Remote access](#remote-access) |
 | `--token T` | `CLAUDECK_TOKEN` | random | Access token when not on loopback |
 | `--allowed-host H[,H]` | `CLAUDECK_ALLOWED_HOSTS` | any | Accepted `Host` names when not on loopback |
+
+### Keep your history
+
+By default, Claude Code deletes transcripts not touched for 30 days, and claudeck can only show what is still on disk. To keep them longer, set `cleanupPeriodDays` in `~/.claude/settings.json`:
+
+```json
+{
+  "cleanupPeriodDays": 3650
+}
+```
 
 ## Install
 
@@ -84,6 +94,15 @@ Good to know:
 ## Privacy
 
 Transcripts can contain anything Claude read or printed: code, file contents, command output, secrets. claudeck keeps everything on your machine and sends nothing anywhere. If you expose it, anyone with the token can read every transcript: keep the token private, and rotate it by changing `CLAUDECK_TOKEN` and restarting.
+
+## Search
+
+Type words to find the sessions that contain all of them, in any order, anywhere in the conversation, folder path, title or branch. Put `"quotes"` around words that must appear together as an exact phrase. Search ignores case, and every hit is highlighted in the open transcript.
+
+| Query | Finds sessions containing |
+| --- | --- |
+| `uvicorn root` | both `uvicorn` and `root`, anywhere |
+| `"root path" uvicorn` | the phrase `root path`, and `uvicorn` |
 
 ## Keyboard
 
